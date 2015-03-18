@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<playlist xmlns="http://xspf.org/ns/0/" xmlns:vlc="http://www.videolan.org/vlc/playlist/ns/0/" version="1">
+	<title>Playlist</title>
+	<trackList>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2012%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-6-wh6yvk6uc.mp4</location>
+			<duration>2876811</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>0</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2013%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-l88D4r74gtM.mp4</location>
+			<duration>2859466</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>1</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2014%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-YzZUIYRCE38.mp4</location>
+			<duration>2987385</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>2</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2015%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-Y_Ac6KiQ1t0.mp4</location>
+			<duration>2930566</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>3</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2016%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-osh80YCg_GM.mp4</location>
+			<duration>2884636</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>4</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2017%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-uNsCkP9mgRk.mp4</location>
+			<duration>2964398</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>5</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2018%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-srxexLishgY.mp4</location>
+			<duration>2951951</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>6</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2019%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-23LLB9mNJvc.mp4</location>
+			<duration>3196945</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>7</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2020%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-QNpj-gOXW9M.mp4</location>
+			<duration>3060575</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>8</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2021%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-lXNXrLcoerU.mp4</location>
+			<duration>3082053</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>9</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2022%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-13r9QY6cmjc.mp4</location>
+			<duration>3109986</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>10</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2023%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-IZqwi0wJovM.mp4</location>
+			<duration>3062711</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>11</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2024b%20%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-sFxA8eIS6tA.mp4</location>
+			<duration>2899683</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>12</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2024%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-8MF3pz-oYHo.mp4</location>
+			<duration>3071418</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>13</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2025%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-umt6BB1nJ4w.mp4</location>
+			<duration>2631633</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>14</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2026%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-M0Sa8fLOajA.mp4</location>
+			<duration>2871611</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>15</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2027%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-vF7eyJ2g3kU.mp4</location>
+			<duration>3039910</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>16</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2028%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-z_zYQHmrh08.mp4</location>
+			<duration>2755766</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>17</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2029%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-Nx0lRBaXoz4.mp4</location>
+			<duration>2494471</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>18</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2030%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-Ts3o2I8_Mxc.mp4</location>
+			<duration>2966650</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>19</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2031%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-vGkn-3NFGck.mp4</location>
+			<duration>3013090</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>20</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2032%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-HgC1l_6ySkc.mp4</location>
+			<duration>2825101</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>21</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2033%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-Go2aLo7ZOlU.mp4</location>
+			<duration>2512421</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>22</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/linear-algebra-MIT-18.06/Lec%2034%20_%20MIT%2018.06%20Linear%20Algebra%2C%20Spring%202005-RWvi4Vx4CDc.mp4</location>
+			<duration>2605556</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>23</vlc:id>
+			</extension>
+		</track>
+	</trackList>
+	<extension application="http://www.videolan.org/vlc/playlist/0">
+			<vlc:item tid="0"/>
+			<vlc:item tid="1"/>
+			<vlc:item tid="2"/>
+			<vlc:item tid="3"/>
+			<vlc:item tid="4"/>
+			<vlc:item tid="5"/>
+			<vlc:item tid="6"/>
+			<vlc:item tid="7"/>
+			<vlc:item tid="8"/>
+			<vlc:item tid="9"/>
+			<vlc:item tid="10"/>
+			<vlc:item tid="11"/>
+			<vlc:item tid="12"/>
+			<vlc:item tid="13"/>
+			<vlc:item tid="14"/>
+			<vlc:item tid="15"/>
+			<vlc:item tid="16"/>
+			<vlc:item tid="17"/>
+			<vlc:item tid="18"/>
+			<vlc:item tid="19"/>
+			<vlc:item tid="20"/>
+			<vlc:item tid="21"/>
+			<vlc:item tid="22"/>
+			<vlc:item tid="23"/>
+	</extension>
+</playlist>

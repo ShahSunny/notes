@@ -1,0 +1,11 @@
+- Loggers
+	- Loggers are named entities. Logger names are case-sensitive and they follow the hierarchical naming rule
+	- For example, the logger named "com.foo" is a parent of the logger named "com.foo.Bar". Similarly, "java" is a parent of "java.util" and an ancestor of "java.util.Vector".
+	- The root logger resides at the top of the logger hierarchy. It is exceptional in two ways:
+    	it always exists,
+    	it cannot be retrieved by name.
+    - Invoking the class static Logger.getRootLogger method retrieves it. 
+    - If a given logger is not assigned a level, then it inherits one from its closest ancestor with an assigned level.
+    - Use BasicConfigurator.configure(); to configure appender to console.
+- Appenders
+- Layouts

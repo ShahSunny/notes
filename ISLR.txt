@@ -1,0 +1,8 @@
+Chapter - 4  youtube-dl https://www.youtube.com/playlist?list=PL5-da3qGB5IC4vaDba5ClatUmFppXLAhE  --write-srt --srt-lang en 
+Chapter - 5  youtube-dl https://www.youtube.com/playlist?list=PL5-da3qGB5IA6E6ZNXu7dp89_uv8yocmf --write-srt --srt-lang en 
+Chapter - 6  youtube-dl https://www.youtube.com/playlist?list=PL5-da3qGB5IB-Xdpj_uXJpLGiRfv9UVXI --write-srt --srt-lang en 
+Chapter - 7  youtube-dl https://www.youtube.com/playlist?list=PL5-da3qGB5IBn84fvhh-u2MU80jvo8OoR --write-srt --srt-lang en 
+Chapter - 8  youtube-dl https://www.youtube.com/playlist?list=PL5-da3qGB5IB23TLuA8ZgVGC8hV8ZAdGh --write-srt --srt-lang en 
+Chapter - 9  youtube-dl https://www.youtube.com/playlist?list=PL5-da3qGB5IDl6MkmovVdZwyYOhpCxo5o --write-srt --srt-lang en 
+Chapter - 10 youtube-dl  https://www.youtube.com/playlist?list=PL5-da3qGB5IBC-MneTc9oBZz0C6kNJ-f2       --write-srt --srt-lang en 
+ISLR Interviews : youtube-dl  https://www.youtube.com/playlist?list=PL5-da3qGB5IC8_kWZXDcmLx7_n4RTBkAS --write-srt --srt-lang en 

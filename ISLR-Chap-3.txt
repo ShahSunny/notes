@@ -1,0 +1,4 @@
+Linear Regression
+- An approach for supervised learning, Useful tool for predicting quantitative response.
+- Not so modern but still widely used method, It also serves as a good jumping point to newer approaches, Many fancy statistical learning approaches can be considered generalized or extended version of linear regression.
+- 

@@ -1,0 +1,49 @@
+vendor_id INT
+vendor_name string
+vendor_address1 string
+vendor_address2 string
+vendor_city string
+vendor_state string
+vendor_zipcode string
+vendor_phone string
+vendor_contact_last_name string
+vendor_contact_first_name string
+default_terms_id INT
+default_account_number INT
+
+CREATE EXTERNAL TABLE vendors( vendor_id INT, vendor_name STRING, vendor_address1 STRING, vendor_address2 STRING, vendor_city STRING, vendor_state STRING, vendor_zipcode STRING, vendor_phone STRING, vendor_contact_last_name STRING, vendor_contact_first_name STRING, default_terms_id INT, default_account_number INT) COMMENT 'Vendors table from ap database of ML Hands-on Book' ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' LOCATION '/user/sunny/ap/vendors';
+
+
+CREATE EXTERNAL TABLE invoices (invoice_id INT, vendor_id INT, invoice_number STRING, invoice_date DATE, invoice_total INT, payment_total INT, credit_total INT, terms_id INT, invoice_due_date DATE, payment_date DATE) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' LOCATION '/user/sunny/ap/invoices';
+
+SELECT vendors.vendor_name, sum(invoice_total) FROM invoices JOIN vendors ON (invoices.vendor_id = vendors.vendor_id) GROUP BY   (vendors.vendor_name) HAVING (sum(invoice_total) > 100) ORDER BY sum(invoice_total) DESC
+
+SELECT vendors.vendor_name,invoices.vendor_id AS id, sum(invoices.invoice_total) AS sum FROM invoices JOIN vendors ON (invoices.vendor_id = vendors.vendor_id) WHERE (invoices.vendor_id IS NOT NULL) GROUP BY (invoices.vendor_id); 
+
+
+SELECT invoices.vendor_id AS id, sum(invoices.invoice_total) AS sum FROM invoices WHERE (invoices.vendor_id IS NOT NULL) GROUP BY (invoices.vendor_id); 
+
+SELECT vendors.vendor_name, sum(invoices.invoice_total) AS sum 
+    FROM vendors 
+    JOIN invoices 
+    ON (invoices.vendor_id = vendors.vendor_id) 
+    WHERE (vendors.vendor_id IS NOT NULL) 
+    GROUP BY (vendor_name); 
+
+SELECT * FROM (SELECT vendor_id, sum(invoice_total) AS sum FROM invoices WHERE (vendor_id IS NOT NULL) GROUP BY (vendor_id)) invoices_grouped JOIN (SELECT vendor_id, vendor_name from vendors) ON (invoices_grouped.vendor_id = vendors.vendor_id);
+
+
+CREATE TABLE vendors( vendor_id INT, vendor_name STRING, vendor_address1 STRING, vendor_address2 STRING, vendor_city STRING, vendor_state STRING, vendor_zipcode STRING, vendor_phone STRING, vendor_contact_last_name STRING, vendor_contact_first_name STRING, default_terms_id INT, default_account_number INT);
+
+
+CREATE TABLE vendors( vendor_id INT, vendor_name STRING)  ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' ;
+
+
+LOAD DATA LOCAL INPATH "/home/sunny/data/ap/vendors.data" INTO TABLE vendors;
+
+1,"Sunny"
+2,"Hema"
+3,"Mini"
+4,"Ami"
+5,"Sunil"
+6,"Bina"

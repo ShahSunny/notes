@@ -1,0 +1,400 @@
+Basic syntax of SQL Select statement
+	SELECT ALL|DISTINCT 
+		column_name|calculated_column [AS alias_column_name],
+		...
+		FROM table_name
+		[WHERE condition_list]
+		[ORDER BY field_list ASC|DESC]
+		[LIMIT row_limit]
+
+Operators available in SELECT
+	*,+.-,%|MOD, DIV (This one for integer division Ex. 5/2 = 2)
+
+Functions,
+	CONCAT function to concatenate strings, 
+		Syntax: CONCAT(string_one, string_two)
+	LEFT
+		Syntax: LEFT(input_string, no_of_characters_from_left)
+	DATE_FORMAT:
+		Syntax: DATE_FORMAT(date,format_string)
+		Examples:
+			SELECT DATE_FORMAT(CURRENT_DATE(),'%d-%m-%Y') AS 'CURRENT_DATE';
+				%d	Day of month,  numeric (01-31)
+				%m	month of year, numeric (01-12)
+				%Y	Year, numeric, four digits
+			SELECT DATE_FORMAT(invoice_date, '%d-%b-%y') from invoices;
+				%b	month of year, numeric (Jan-Dec)
+				%y	Year, numeric, two digits
+
+	ROUND
+		Syntax: ROUND(number,[no-of-decimal-places])
+
+Comparison operators:
+	= Equals, (There is no == in SQL), <=, >=, <, >
+	!=, <>  Not Equals
+
+Logical Operators
+	AND, OR, NOT
+
+IN operator
+	Example:
+		SELECT * FROM invoices_line_items
+			WHERE invoice_id IN (SELECT invoice_id FROM invoices WHERE payment_date IS NULL)
+	Example:
+		SELECT * FROM terms WHERE terms_id NOT IN (1,2,3)
+
+BETWEEN operator
+	Example
+			SELECT invoice_id FROM invoices WHERE payment_date BETWEEN '2011-01-31' AND '2011-10-31'
+
+	Example
+			SELECT invoice_id FROM invoices WHERE invoice_total BETWEEN 1000 AND 2000
+
+LIKE operator
+	% to match 0 or unlimited any characters
+	- to match one any character
+	Example
+		SELECT * FROM ap.vendors WHERE vendor_name LIKE 'N%';
+
+REGEXP operator
+	Matches regular expression
+
+REGEXP operator
+	Matches POSIX compliant regular expressions implementation.
+	Example
+			SELECT * FROM vendors WHERE vendor_name REGEXP '^N';
+
+Check for NULL
+	Example:
+		SELECT 	invoice_number, invoice_date, 
+		invoice_total - payment_total + credit_total as 'balance_due',
+        payment_date
+		FROM invoices
+		WHERE payment_date is null
+		ORDER BY balance_due DESC
+	Another Example:
+		SELECT invoice_id FROM invoices WHERE payment_date IS NOT NULL;
+
+LIMIT 
+	Syntax:
+		LIMIT [offset,] row_count
+	Example:
+		SELECT 	invoice_number, invoice_total, 
+		payment_total + credit_total AS 'payment_credit_total',
+        payment_total - credit_total AS 'balance_due'
+		FROM invoices
+		WHERE (payment_total - credit_total) > 50
+		ORDER BY balance_due DESC
+        LIMIT 5;
+
+Inner Joins:
+	Syntax:
+		SELECT field_list
+			FROM table_name
+			INNER JOIN join_table_name 
+				ON table_name.join_field_name = join_table_name.join_field_name
+			INNER JOIN another_join_table_name 
+				ON table_name.join_field_name = another_join_table_name.join_field_name
+	Example:
+		SELECT invoice_no, vendor_name 
+			FROM vendors 
+			INNER JOIN invoices
+				ON vendors.vendor_id = invoices_vendor_id
+			ORDER BY invoice_no
+	Note:
+		Here INNER keyword is optional and is seldom used.
+
+To Join another database, Specify database_name.table_name
+
+Join on compound (multiple) conditions/fields
+	Example:
+		select customer_first_name, customer_last_name
+			FROM customers c
+			JOIN employee e
+				ON c.customer_first_name = e.first_name 
+					AND c.customer_last_name = e.last_name;
+
+Outer Join-
+	SELECT select_list 
+		FROM table_1
+			[RIGHT|LEFT] [OUTER] JOIN table_2 ON join_condition_1
+			[RIGHT|LEFT] [OUTER] JOIN table_3 ON join_condition_2
+
+	Here OUTER keyword is optional and is typically omitted.
+
+
+USING Keyword
+	If joining field names are same then instead of using = condition, Using keyword can and should be used.
+
+	Example:
+		SELECT invoice_id, vendor_name 
+			FROM vendors 
+			INNER JOIN invoices	USING(vendor_id)
+			ORDER BY invoice_id
+	Above SQL statement is same as below one:
+		SELECT invoice_id, vendor_name 
+			FROM vendors v
+			INNER JOIN invoices	i ON v.vendor_id = i.vendor_id
+			ORDER BY invoice_id
+
+	Example:
+		select customer_first_name, customer_last_name
+			FROM customers c
+			JOIN employee e USING(first_name,last_name)
+	Above SQL statement is same as below one:
+		select c.first_name, c.last_name
+			FROM customers c
+			JOIN employee e
+				ON c.first_name = e.first_name 
+					AND c.last_name = e.last_name;
+
+Summary query
+	AVG(ALL|DISTINCT expression)
+	SUM(ALL|DISTINCT expression)
+		- SUM and AVG only expects numerical inputs
+	MIN(ALL|DISTINCT expression)
+	MAX(ALL|DISTINCT expression)
+	COUNT(ALL|DISTINCT expression)
+		- Above all can have numeric, date and string values
+
+HAVING and WHERE condition
+	- HAVING is a filter for output of group by
+	- WHERE is a filter for input of group by
+With Rollup
+	- MySQL feature, Add one extra summary row for each group. 
+
+Subquery can be inserted in HAVING,WHERE,SELECT (as a field ) and FROM (as a table)
+	- SQL queries look more readable with joins, If anyhow we need subquery then a view of the subquery should be created for performance reasons.
+
+Create a copy of the table:
+	CREATE TABLE table_name AS select_statement
+	Example:
+		CREATE TABLE invoices_copy AS 
+			SELECT * FROM invoices;
+
+INSERT data:
+	INSERT [INTO] table_name [(columns_list)]
+		(values/expressions for columns_list)
+		[,(values/expressions for columns_list)]
+
+NULL/DEFAULT
+	- It is possible to insert DEFAULT and NULL values
+	- Example:
+		INSERT INTO colors (color_name, color_code)
+			VALUES (DEFAULT,NULL)
+
+INSERT with SQL query
+	Example:
+		INSERT INTO INVOICES 
+			SELECT * FROM ARCHIVED_INVOICES
+
+UPDATE Statement
+	UPDATE table_name SET column_name1 = expression1[, column_name2 = expression2]
+		WHERE condition
+
+DELETE Statement
+	- DELETE FROM table_name WHERE search_condition
+
+Use + to convert string to integer
+	SELECT '2'+10; --Gives result 12
+Use CONCAT to convert int to string
+	SELECT CONCAT(2,12);
+USE CAST or CONVERT function to convert the data_type
+	CAST(expression AS cast_type)
+		SELECT CAST(2 AS SIGNED)
+	CONVERT(expression,cast_type)
+		SELECT CONVERT(2,SIGNED)
+FORMAT(number,decimal_points)
+	Converts number to string with specified decimal points
+		SELECT FORMAT(3.901,1); -- Output: 3.9
+CHAR(value1[,value2]...)
+	Converts one or more numbers to ASCII character.
+	CHAR(13) gives carriage return
+
+String format functions
+	-CONCAT(string1[,string2])
+		-Merge strings
+	-CONCAT_WS(separator_string,string1[,string2])
+		- Merges the strings with specified separator, If separator is NULL then output is NULL, If one of the strings to merge is NULL then it gets ignored.
+	-LTRIM(str)
+		- Removes white space from left
+	-RTRIM(str)
+		- Removes white space from right
+	-TRIM(str)
+		- Removes spaces from LEFT and RIGHT
+		- Example
+			SELECT REPLACE(TRIM('  SUNNY  SHAH'),' ','*');--Output: SUNNY**SHAH
+	-LENGTH(str)
+		-Returns the number of characters from the string
+	-FIND(string_to_find,string_to_search)
+		Example:
+			SELECT LOCATE('S','SUNNY**SHAH'),LENGTH('SUNNY'); --Output 1,5
+		- If locate function fails to find then it returns 0
+	-LEFT(string,no_of_character)
+	-RIGHT(string,no_of_character)
+	-SUBSTRING_INDEX(string,delimiter,count)
+		-Returns the substring before the delimiter count, If count is negative then it reverses the direction.
+		-Example:
+			SELECT SUBSTRING_INDEX('SUNNY SUNIL SHAH',' ',1) AS FIRST_NAME;--SUNNY
+			SELECT SUBSTRING_INDEX('SUNNY SUNIL SHAH',' ',-1) AS LAST_NAME;--SHAH
+	-SUBSTRING(string,start,length)
+	-REPLACE(string,search,replace)
+		SELECT REPLACE(TRIM('  SUNNY  SHAH'),' ','*');--Output: SUNNY**SHAH
+	-INSERT(str,insert_position,characters_to_replace,insert_string)
+	-REVERSE(string)
+	-LOWER(string)
+	-UPPER(string)
+	-LPAD(string,new_length,padding_string)
+		--Pads the string on the left side with padding_string until it is of the size new_length,if new_length is lesser than existing length of the string then string gets truncated.
+		Example:
+			SELECT LPAD('SUNNY',7,'*'); --Output SUNNY**
+			SELECT LPAD('SUNNY',7,'SQR');--Output SQSUNNY
+	-RPAD(string,new_length,padding_string)
+	-SPACE(count)
+		-Returns string with the count of spaces
+	-REPEAT(str,count)
+		-Returns the specified string repeated count times
+
+-Numeric functions
+	-ROUND(number,decimal_length)
+	-TRUNCATE(number,length)
+	-CEILING(number)
+	-FLOOR(number)
+	-ABS(number)
+	-SIGN(number)
+
+DATABASE create and drop
+	CREATE DATABASE [IF NOT EXISTS] db_name
+	DROP DATABASE [IF EXISTS] db_name
+	USE db
+
+Create table
+	- CREATE TABLE [db.name.]table_name
+		(
+			column_name_1 data_type [column_attributes]
+			[,column_name_1 data_type [column_attributes]]
+			[table level constrains]
+		)
+	- column attributes
+		NOT NULL
+		UNIQUE
+		DEFAULT dafault_value
+		AUTO_INCREMENT
+		PRIMARY KEY
+	- Example:
+		CREATE TABLE vendors
+		(
+			vendor_id 	INT 			NOT	NULL PRIMARY KEY AUTO_INCREMENT
+			vendor_name VARCHAR(50)		NOT NULL UNIQUE
+		);
+		CREATE TABLE invoices
+		(
+			invoice_id 		INT				NOT NULL UNIQUE,
+			vendor_id		INT				NOT NULL,
+			invoice_number	VARCHAR(50)		NOT NULL UNIQUE, 
+			invoice_Date	DATE			NOT NULL,
+			invoice_total	DECIMAL(9,2)	DEFAULT 0
+			payment_total	DECIMAL(9,2)	DEFAULT 0
+		)
+		- Create constraint
+			PRIMARY KEY
+				- [CONSTRAINT [constraint_name]] PRIMARY KEY (column_name_1,[column_list_additional])
+				CREATE TABLE vendors
+				(
+					vendor_id	INT					AUTO_INCREMENT,
+					vendor_name	VARCHAR(50)			NOT NULL
+					CONSTRAINT 	vendors_pk 			PRIMARY KEY(vendor_id),
+					CONSTRAINT 	vendor_name_unique 	UNUQUE(vendor_name)
+				)
+			FOREIGN KEY
+				- COLUMN LEVEL 
+					[CONSTRAINT] REFERENCES table_name(column_name) [ on DELETE (CASCADE|SET NULL)]
+				- TABLE LEVEL
+					[CONSTRAINT constraint_name] FOREIGN KEY (column_name_1[, column_name_2]...) 
+					REFERENCES table_name(column_name[, column_name_2]...) 
+					[ on DELETE (CASCADE|SET NULL)]
+		- ALTER TABLE
+			- Change columns
+				ALTER TABLE [db_name.]table_name
+				{
+					ADD 		column_name data_type [column_attributes] |
+					DROP 		COLUMN column_name |
+					MODIFY		column_name data_type [column_attributes]
+				}
+				- MySQL does not allow to change a column if that change would cause data loss, for example adding UNIQUE column constraint to a field which already contains duplicate values
+			- Change constraints
+				ALTER TABLE [db.name.]table_name
+				{
+					ADD PRIMARY KEY constraint_definition |
+					ADD [constraint constraint_name] FOREIGN_KEY constraint_definition
+					DROP PRIMARY_KEY
+					DROP FOREIGN_KEY constraint_name
+				}
+		- RENAME TABLE
+			RENAME TABLE tale_name TO new_table_name	
+			- It does not automatically updates the foreign key constraints of this table in other tables, We need to first drop the constrains, rename the table, and add new constrains with new name
+		- DELETE all data from a table
+			TRUNCATE TABLE table_name
+		- DELETE table
+			DELETE TABLE [db_name.]table_name
+CHARSET
+	- While creating the database it is possible to set the charset.
+	- There are two commonly used charsets in mysql
+		1. latin1
+			- SHOW collation LIKE 'latin%'
+			Some sample collations for latin1 charset
+				1.1 latin1_swedish_ci - default collation for latin1
+				1.2 latin1_general_ci - A case-insensitive collation for latin1 character set, In comparision david and David and daVId all will return true. Retrival will be exact.
+				1.3 latin1_general_cs - A case-sensitive collation for the latin1 character set
+				1.4 latin1_bin 		  - The binary collation ofr latin1 character set
+		2. utf8
+			- SHOW collation LIKE 'utf8%'
+			- Some sample collation for utf8 charset
+				1. utf8_general_ci - Default utf8
+				2. utf8_spanish_ci - Case insensitive utf8
+				3. utf8_bin		   - The binary collation for utf8
+	- TO view the default collation set for the server
+			- SHOW VARIABLES LIKE 'character_set_server'
+	- TO view the default collation for the server
+			- SHOW VARIABLES LIKE 'collation_server'
+	- TO view the default collation set for the database
+			- SHOW VARIABLES LIKE 'character_set_database'
+	- TO view the default collation for the database
+			- SHOW VARIABLES LIKE 'collation_database'
+	- To view the character set and collation for all the tables in database
+		SELECT table_name, table_collation
+			FROM information_schema.tables 
+			WHERE table_schema='database_name'
+	- To specifiy a character set and collation at the database level
+		- For a new database
+			CREATE DATABASE database_name CHARSET utf8 COLLATE utf8_general_ci
+		- For an existing database
+			ALTER DATABASE database_name CHARSET utf8 COLLATE utf8_general_ci
+			-- Changing database does not change existing table's values
+	- To specify charset for the table
+		- CREATE TABLE table_name 
+			(
+				list of columns
+			)
+			CHARSET utf8 COLLATE utf8_general_ci
+		- ALTER TABLE table_name CHARSET utf8 COLLATE utf8_general_ci
+			- This does not change existing column's CHARSET and COLLATE
+	- SPECIFY character set and collation at the column level
+		- CREATE TABLE employees
+			(
+				emp_name VARCHAR[20] NOT NULL CHARSET utf8 COLLATE utf8_general_ci
+			)
+		- ALTER TABLE employees MODIFY emp_name VARCHAR[20] NOT NULL CHARSET latin1 COLLATE  latin1_swedish_ci
+Storage engines:
+	-Displays storage engines
+		SHOW engines ;
+	-Show current active storage engine
+		SHOW VARIABLES LIKE 'storage_engine';
+	- Engine table-wise
+		SELECT table_name, engine
+			FROM information_schema.tables 
+			WHERE table_schema='ap';
+	- To set a different engine for newer table
+		CREATE TABLE table_name (column_list) ENGINE = MyISAM;
+	- To set a different engine for an existing table;
+		ALTER TABLE table_name ENGINE=InnoDB;

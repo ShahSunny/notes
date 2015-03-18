@@ -1,0 +1,82 @@
+Use below command to run project with all the dependencies.
+	mvn exec:java -Dexec.mainClass=org.sonatype.mavenbook.weather.Main
+To resolve all the dependencies
+	mvn dependency:resolve
+In Dependency tree format
+	mvn dependency:tree
+- Directory structure.
+	- src/main/java -> for java code
+	- src/main/resources -> for resources
+	- src/test/java -> unit test code ( Not part of jar file )
+	- src/test/resources - unit test resources ( Not part of jar file )
+	- target -> dir for output
+- mvn clean
+- mvn compile
+- mvn test
+- mvn package -> creates jar file
+- mvn install -> Installs jar file and pom file in local repo.
+- mvn deploy  -> copy and installs in shared repo
+- pom.xml
+	- project information
+		- group-id
+		- artifact-id
+		- version
+		- packaging
+	- dependencies
+		- direct dependencies used in project
+	- build
+		- plugins config
+		- custom directory structure
+	- repositories
+		- custom/internal repo server
+- dependencies
+	- group-id, artifact-id and version is required
+	- scope can be run, test, compile. Default is compile
+- Changing default filestructure,
+	- build secion
+		- Example of changing the name of the jar file to foo.jar
+			<build>
+				<finalName>foo</finalName>
+			</build>
+- versions
+	- Developments starts with snapshot
+	- In snapshot version, changes are downloaded everytime
+	- saves you from re-releasing versions for the development
+	- It is important to never deploy snapshot version as it makes it impossible to recreate the snapshot
+- Snapshot repo is not included in maven default repo
+	- It can be set via 
+		  <repositories>
+		    <repository>
+		      <id>my-internal-site</id>
+		      <url>http://myserver/repo</url>
+		    </repository>
+		  </repositories>
+- Maven compiler plugin
+	- Set the java version to compile in maven pom file 
+		<build>
+			<plugins>
+		        <plugin>
+		        	<group-id>org.apache.maven.plugins</group-id>
+		            <artifactId>maven-compiler-plugin</artifactId>
+		            <configuration>
+		            	<fork>true</fork>
+		            	<meminitial>128m</meminitial>
+		            	<maxmem>512m</maxmem>
+		                <source>1.7</source>
+		                <target>1.7</target>
+		            </configuration>
+		        </plugin>
+		    </plugins>
+	    </build>
+	
+mvn dependency:build-classpath
+
+mvn archetype:generate -DgroupId=org.sunny \
+-DartifactId=hello-world-maven \
+-Dpackage=org.sonatype.mavenbook \
+-DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false \
+-Dversion=1.0-SNAPSHOT
+
+mvn archetype:generate -DarchetypeGroupId=org.apache.maven.archetypes -DarchetypeArtifactId=maven-archetype-quickstart -DgroupId=org.sunny -DartifactId=hello-world-maven -Dversion=1.0-SNAPSHOT -DinteractiveMode=false
+
+mvn archetype:generate -DgroupId=org.sunny -DartifactId=hello-world-maven -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false

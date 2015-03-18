@@ -1,0 +1,172 @@
+- Maven configuration
+	<dependency>
+		<groupId>org.mockito</groupId>
+		<artifactId>mockito-core</artifactId>
+		<version>2.0.3-beta</version>
+	</dependency>	
+- Import Mockito statically, 
+	import static org.mockito.Mockito.*;
+- Create a mock object of Mock class or interface
+	List mockedList = mock(List.class);
+- Call functions on Mocked class just like normal object
+	mockedList.add("one");
+	mockedList.clear();
+- Check whether the function was actually called or not,
+	verify(mockedList).add("one");
+	verify(mockedList).clear();
+- Mock methods for particular function call
+	when(mockedList.get(0)).thenReturn("first");
+	when(mockedList.get(1)).thenThrow(new RuntimeException());
+	//following prints "first"
+	System.out.println(mockedList.get(0));
+	//following throws runtime exception
+	System.out.println(mockedList.get(1));
+	//following prints "null" because get(999) was not stubbed
+	System.out.println(mockedList.get(999));
+- anyInt() method
+	//stubbing using built-in anyInt() argument matcher
+	when(mockedList.get(anyInt())).thenReturn("element");
+- verify() works with anyInt() also 
+	//Returns "element"
+	System.out.println(mockedList.get(999));
+	//you can also verify using an argument matcher
+	verify(mockedList).get(anyInt());
+- When using argument matchers, all arguments have to be provided by matchers.
+	verify(mock).someMethod(anyInt(), anyString(), eq("third argument"));
+	//above is correct - eq() is also an argument matcher
+	 
+	verify(mock).someMethod(anyInt(), anyString(), "third argument");
+	//above is incorrect - exception will be thrown because third argument is given without an argument matcher.
+- Using times, atLeastOnce, atLeast, atMost
+		CreditCard mockedCreditCard = mock(CreditCard.class);
+		mockedCreditCard.debitAmount(1);
+		
+		mockedCreditCard.debitAmount(2);
+		mockedCreditCard.debitAmount(2);
+		
+		mockedCreditCard.debitAmount(3);
+		mockedCreditCard.debitAmount(3);
+		mockedCreditCard.debitAmount(3);
+		
+		verify(mockedCreditCard, times(1)).debitAmount(1);
+		verify(mockedCreditCard, times(2)).debitAmount(2);
+		verify(mockedCreditCard, times(3)).debitAmount(3);
+		
+		verify(mockedCreditCard, never()).debitAmount(0);
+		verify(mockedCreditCard, atLeastOnce()).debitAmount(2);
+		verify(mockedCreditCard, atLeast(2)).debitAmount(3);
+		verify(mockedCreditCard, atMost(2)).debitAmount(2);
+- Throw Exception when void method is called
+	doThrow(new TransactionDeniedError()).when(mockedCreditCard).debitAmount(anyInt());
+- Testing the sequence of the function calls in mocked object
+	@Test
+	public void testVerificationOrder() throws CreditCardTransactionError {
+		CreditCard mockedCreditCard = mock(CreditCard.class);
+		mockedCreditCard.debitAmount(1);		
+		mockedCreditCard.debitAmount(2);
+		mockedCreditCard.debitAmount(3);
+		
+		InOrder orderChecker = inOrder(mockedCreditCard);
+		orderChecker.verify(mockedCreditCard).debitAmount(1);
+		orderChecker.verify(mockedCreditCard).debitAmount(2);
+	}
+- Testing the sequence of the function calls between objects
+	@Test
+	public void testVerficationOrderAcrossObjects() throws CreditCardTransactionError {
+		CreditCard mockedCreditCard = mock(CreditCard.class);
+		mockedCreditCard.debitAmount(1);		
+		mockedCreditCard.debitAmount(2);
+		
+		CreditCard oneMoreMockedCreditCard = mock(CreditCard.class);
+		oneMoreMockedCreditCard.debitAmount(20);
+		
+		InOrder orderChecker = inOrder(mockedCreditCard, oneMoreMockedCreditCard);
+		orderChecker.verify(mockedCreditCard).debitAmount(1);
+		orderChecker.verify(oneMoreMockedCreditCard).debitAmount(20);
+	}
+- Test No interaction (No function call) with MockedObject
+	@Test
+	public void validateNoInteractions() throws CreditCardTransactionError {
+		CreditCard mockedCreditCard = mock(CreditCard.class);
+		mockedCreditCard.debitAmount(1);		
+		
+		CreditCard secondCreditCard = mock(CreditCard.class);
+		CreditCard thirdMockedCreditCard = mock(CreditCard.class);
+		verifyNoMoreInteractions(secondCreditCard, thirdMockedCreditCard);
+	}
+- Separate return values for function call with same value
+	@Test
+	public void separateReturnTwoFunctionCallsWithSameValue() {
+		Invoice	   mockedInvoice	= mock(Invoice.class);
+		int firstReturn = 10;
+		int afterItReturn  = 12;
+		//Also possible to write in below fashion
+		//when(mockedInvoice.getInvoiceAmount()).thenReturn(firstReturn,afterItReturn)
+		when(mockedInvoice.getInvoiceAmount()).thenReturn(firstReturn).thenReturn(afterItReturn);
+		assertEquals("FirstReturn is not as expected",firstReturn, mockedInvoice.getInvoiceAmount());
+		assertEquals("SecondReturn is not as expected",afterItReturn, mockedInvoice.getInvoiceAmount());
+		assertEquals("Subsequent return is not same as secondReturn",afterItReturn, mockedInvoice.getInvoiceAmount());
+		assertEquals("One more Subsequent return is not same as secondReturn",afterItReturn, mockedInvoice.getInvoiceAmount());		
+	}
+- Programmable test output (Based on arguments / some other state)
+	static interface ArgsConcatInterface{
+		String concatArgs(String... args);
+	}
+	
+	@Test
+	public void useMockitoAnswerForArgsConcat() {
+		ArgsConcatInterface concater = mock(ArgsConcatInterface.class);
+		when(concater.concatArgs(anyString(),anyString(),anyString())).thenAnswer(new Answer<String>() {
+			@Override
+			public String answer(InvocationOnMock invocation) throws Throwable {
+				Object[] args = invocation.getArguments();
+				logger.debug("Called concatArgs");
+				String concatedString = "";
+				for(Object s:args) {
+					concatedString += " " + (String)s;
+				}
+				return concatedString;
+			}			
+		});
+		//when(concater.concatArgs(anyString())).thenReturn("Hello World");
+		logger.debug(concater.concatArgs("Hello","World","You are Great"));
+	}
+- Partial-Implementation (Changing particular method call output on real object) + Spying on object
+	List list = new LinkedList();
+	List spy = spy(list);
+
+	//optionally, you can stub out some methods:
+	when(spy.size()).thenReturn(100);
+
+	//using the spy calls *real* methods
+	spy.add("one");
+	spy.add("two");
+
+	//prints "one" - the first element of a list
+	System.out.println(spy.get(0));
+
+	//size() method was stubbed - 100 is printed
+	System.out.println(spy.size());
+
+	//optionally, you can verify
+	verify(spy).add("one");
+	verify(spy).add("two");
+- Sometimes, It is not possible to implement when function because actual function throws exceptions
+	List list = new LinkedList();
+	List spy = spy(list);
+
+	//Impossible: real method is called so spy.get(0) throws IndexOutOfBoundsException (the list is yet empty)
+	when(spy.get(0)).thenReturn("foo");
+
+	//You have to use doReturn() for stubbing
+	doReturn("foo").when(spy).get(0);
+- Another way to implement partial implementation
+	//you can enable partial mock capabilities selectively on mocks:
+	Foo mock = mock(Foo.class);
+	//Be sure the real implementation is 'safe'.
+	//If real implementation throws exceptions or depends on specific state of the object then you're in trouble.
+	when(mock.someMethod()).thenCallRealMethod();
+- Verify whether particular object is Mock or Spy
+	Mockito.mockingDetails(someObject).isMock();
+	Mockito.mockingDetails(someObject).isSpy();
+- 

@@ -1,0 +1,942 @@
+- File name and main class name should be the same
+Example:
+
+HelloWorldApp.java
+	/**
+	 * The HelloWorldApp class implements an application that
+	 * simply prints "Hello World!" to standard output.
+	 */
+	class HelloWorldApp {
+	    public static void main(String[] args) {
+	        System.out.println("Hello World!"); // Display the string.
+	    }
+	}
+
+Loop Break:
+	class LoopBreakApp {
+		public static void main(String[] args) {
+			outerFirst:
+			for (int i=0;i<5 ; i++) {
+				for (int j=0; j<5; j++) {
+					System.out.println(i+","+j);
+					if(i==2 && j==2)
+						continue outerFirst; //Stops j loop and Starts i loop with 3
+				}
+			}
+		}
+	}
+
+Inheritance plus constructor:
+class Bike {
+	private int m_speed = 0;
+	public Bike(int speed) {
+		m_speed = speed;
+	}
+	
+	public void setSpeed(int speed) {
+		m_speed = speed;
+	}
+
+	public int getSpeed() {
+		return m_speed;
+	}
+}
+class MountainBike extends Bike {
+	private int m_height = 0;
+
+	public MountainBike(int speed, int height) {
+		super(speed);
+		m_height = height;
+	}
+
+	public void setHeight(int height) {
+		m_height = height;	
+	}
+
+	public int getHeight() {
+		return m_height;
+	}
+
+	public static void main(String[] args) {
+		MountainBike bike = new MountainBike(10,12);
+		System.out.println(bike.getHeight() + " , " + bike.getSpeed());
+	}
+}
+
+Overloading and overriding
+	class Bike {
+		private int m_speed = 0;
+		public Bike() {		
+			System.out.println("In Bike()");
+			m_speed = 5;
+		}
+		public Bike(int speed) {		
+			m_speed = speed;
+		}
+		
+		public void setSpeed(int speed) {
+			System.out.println("In setSpeed(int speed)");
+			m_speed = speed;
+		}
+
+		public int getSpeed() {
+			return m_speed;
+		}
+	}
+	class MountainBike extends Bike {
+		private int m_height = 0;
+
+		public MountainBike(int height) {
+			System.out.println("In MountainBike()");
+			m_height = height;
+		}
+		public void setSpeed(String speed) {
+			System.out.println("In setSpeed(String speed)");
+		}
+		public void setHeight(int height) {
+			m_height = height;	
+		}
+
+		public int getHeight() {
+			return m_height;
+		}
+
+		public static void main(String[] args) {
+			MountainBike bike = new MountainBike(12);			
+			bike.setSpeed(1);
+			bike.setSpeed("Sunny");
+		}
+	}
+
+-Java manipulates objects 'by reference,' but it passes object references to methods 'by value.'
+	class Point {
+		public int x = 0;
+		public int y = 0;
+		void print(String strStart) {
+			System.out.println(strStart+"X = " + x + ", Y = " + y);
+		}
+	}
+
+	class PassByReference {
+		static void changeValues(Point p1, Point p2) {
+			p1.x = 100;
+			p1.y = 100;
+			p1 = new Point();
+			p2 = p1;
+		}
+
+		public static void main(String[] args) {
+			Point p1 = new Point();
+			Point p2 = new Point();
+			p1.print("P1 = ");
+			p2.print("P2 = ");
+			changeValues(p1,p2);
+			p1.print("P1 = ");
+			p2.print("P2 = ");
+		}
+	}
+- Using this within Constructor to call another constructor, the invocation of another constructor must be the first line in the constructor.
+	class Constructor  {
+		int m_intValue;
+		String m_strValue;
+		Constructor(int value) {
+			this("Str " + value);
+			m_intValue = value;
+			
+		}
+		Constructor(String value) {
+			m_strValue = value;
+		}
+		
+		void print() {
+			System.out.println("intValue " + m_intValue);
+			System.out.println("strValue " + m_strValue);
+		}
+
+		public static void main(String[] args) {
+			Constructor	c = new Constructor(10);
+			c.print();
+		}
+	}
+	Output:
+		intValue 10
+		strValue Str 10
+- Static initialization block:
+	class StaticIntialization {
+		public static int i;
+		public static String s;
+		public static int init = staticInitializer(); // This code does the initialization
+		public static int staticInitializer() {
+			i = 10;
+			s = "Sunny";
+			return 1;
+		}
+
+		public static void main(String[] args) {
+			System.out.println(i + "," + s);
+		}
+	}
+- Inner Class
+	class OuterClass {
+		public int q;
+		public int s;
+		public static class StaticInnerClass {
+			public int a;
+		}
+
+		public class InnerClass {
+			public int m;
+			InnerClass(int m, int q) {
+				this.m = m;
+				OuterClass.this.q = q;
+			}
+
+			void print() {
+				System.out.println(s);
+				System.out.println(m);
+				System.out.println(q);
+			}
+		}
+	}
+	class InnerClassApp {
+		public static void main(String[] args) {
+			OuterClass.StaticInnerClass o = new OuterClass.StaticInnerClass();
+			o.a = 2;
+			System.out.println(o.a);
+			OuterClass outerClass = new OuterClass();
+			outerClass.s = 2;
+			OuterClass.InnerClass innerClass = outerClass.new InnerClass(20,30);
+			System.out.println("outerClass.s = " + outerClass.s);		
+			innerClass.print();
+			//System.out.println("innerClass.s = " + innerClass.s);// NOT allowed
+		}
+	}
+- One more example of InnerClass
+	class IntegerArray {
+		static private int SIZE = 10;
+		private int[] m_arr = new int[10];
+
+		IntegerArray(int startInitValue) {
+			for (int i=0; i<10; i++) {
+				m_arr[i] = startInitValue+i;
+			}
+		}
+		void print() {
+			for (int i=0; i<10; i++) {
+				System.out.println(" [" + i + "] "+ m_arr[i]);
+			}	
+		}
+
+		class IntegerArrayIterator{
+			private int position = 0;
+			
+			public boolean hasNext() {
+				return position < (SIZE);
+			}
+			
+			public int next() {
+				int val = m_arr[position];
+				++position;
+				return val;
+			}
+		}
+	}
+	class InnerClassDS {
+		public static void main(String[] args) {
+			IntegerArray a = new IntegerArray(10);
+			a.print();
+			IntegerArray.IntegerArrayIterator it = a.new IntegerArrayIterator();
+			while(it.hasNext()) {
+				System.out.println(it.next());
+			}
+		}
+	}
+
+Anonymous Class
+
+	interface StoreString {
+		void setString(String str);
+		String getString();
+		HelloWorld getHelloWorld();
+		void setHelloWorld(HelloWorld helloWorld);
+	}
+
+	interface HelloWorld {
+		HelloWorld sayHello();
+	}
+
+
+
+	class HelloWorldInAllPossibleLanguagues {
+
+		public StoreString sayHello() {
+
+			StoreString st = new StoreString() {
+				private String m_string;
+				private HelloWorld m_helloWorld;
+				public void setString(String str) { m_string = str; }
+				public String getString() { return m_string; }
+				public HelloWorld getHelloWorld() { return m_helloWorld;}
+				public void setHelloWorld(HelloWorld helloWorld)  { m_helloWorld = helloWorld; }
+			};
+
+			st.setString("!");
+			//First anonymous class
+			HelloWorld english = new HelloWorld() {
+				public HelloWorld sayHello() {				
+					System.out.println("Hello World"+st.getString());
+					return this;
+				}
+			};
+			
+			//Second anonymous class
+			HelloWorld gujarati = new HelloWorld() {
+				public HelloWorld sayHello() {
+					System.out.println("Kem Cho Duniya" + st.getString());
+					return this;
+				}
+			};
+			st.setHelloWorld(gujarati);
+			english.sayHello();
+			gujarati.sayHello();
+			return st;
+		}
+	}
+
+	class AnonymousClasseApp {
+		public static void main(String[] args) {
+			HelloWorldInAllPossibleLanguagues h = new HelloWorldInAllPossibleLanguagues();
+			StoreString st = h.sayHello();
+			st.setString("!!!");
+			st.getHelloWorld().sayHello();
+		}
+	}
+
+- cannot declare constructors in an anonymous class.
+
+- Lamda Expressions
+	import java.util.function.Predicate;
+
+	class LamdaApp {
+		static void testEven(int number, Predicate<Integer> c) {
+			if(c.test(number)) {
+				System.out.println(number + " is Even");
+			} else {
+				System.out.println(number + " is Odd");
+			}
+		}
+		
+		public static void main(String[] args) {
+			// EvenCheckerImpl impl = new EvenCheckerImpl();
+			Predicate<Integer> impl = (number)-> (number%2 == 0);
+			testEven(2, impl);
+			testEven(5, impl);
+		}
+	}
+
+- Enums
+	enum Day {
+	    SUNDAY, MONDAY, TUESDAY, WEDNESDAY,
+	    THURSDAY, FRIDAY, SATURDAY 
+	}
+
+	enum Gender {
+		MALE 	(60,85),
+		FEMALE 	(45,65);
+
+		private int m_weightFrom, m_weightTo;
+		Gender(int weightFrom, int weightTo) {
+			m_weightFrom = weightFrom;
+			m_weightTo 	 = weightTo;
+		}
+
+		public int getMinWeight() { return m_weightFrom;}
+		public int getMaxWeight() { return m_weightTo;}
+	}
+
+	class EnumApp {
+		public static void main(String[] args) {
+			Day d = Day.SUNDAY;
+			if(d == Day.SUNDAY) {
+				System.out.println("It is sunday");
+			}
+			if(d != Day.MONDAY) {
+				System.out.println("It is not monday");
+			}
+
+			for (Day p : Day.values()) {
+				System.out.println(p);
+			}
+
+			System.out.println("Male Ideal Weight Range " + Gender.MALE.getMinWeight() + " , " + Gender.MALE.getMaxWeight());
+			System.out.println("Female Ideal Weight Range " + Gender.FEMALE.getMinWeight() + " , " + Gender.FEMALE.getMaxWeight());
+		}
+	}
+- Annotations - Better way to put non-code related information in code, stuff that we ususally put in comments, can better be put in Annotations:
+	import java.lang.annotation.*;
+
+	@Documented
+	@interface ClassPreamble {
+	   String author();
+	   String date();
+	   int currentRevision() default 1;
+	   String lastModified() default "N/A";
+	   String lastModifiedBy() default "N/A";
+	   // Note use of array
+	   String[] reviewers();
+	}
+
+	@ClassPreamble (
+	   author = "John Doe",
+	   date = "3/17/2002",
+	   currentRevision = 6,
+	   lastModified = "4/12/2004",
+	   lastModifiedBy = "Jane Doe",
+	   // Note array notation
+	   reviewers = {"Alice", "Bob", "Cindy"}
+	)
+
+	class Annotations {
+		public static void main(String[] args) {
+			System.out.println("Example of Annotations");	
+		}	
+	}
+- Packages:
+	- Create folder for the package name
+	- Put Package-Name as the first name: Package Package-Name,  There can be only one package statement in each source file.
+	- If you put multiple types in a single source file, only one can be public, and it must have the same name as the source file
+	- There are three ways to access package members, 
+		1. TestPackage.Car 
+		2. import TestPackage.Car; and use Car class 
+		3. Import TestPackage.* and use any of the TestPackage public classes
+	- *Mistake In Below Code** - Package name should be in all small, Looks like, This is the convention in Java.
+	- Example
+		//File TestPackage/Vehicle.java
+		package TestPackage;
+		interface Vehicle {
+			void increaseSpeed();
+			void decreseSpeed();
+			int  getSpeed();
+		}
+
+		//File TestPackage/Car.java
+		package TestPackage;
+		public class Car implements Vehicle { //This class is available outside the package because it is public
+			private int m_speed = 0;
+			public void increaseSpeed() { ++m_speed; }
+			public void decreseSpeed() { --m_speed; }
+			public int  getSpeed()     {return m_speed;}
+		}
+
+		//File PackageTestApp.java
+		import TestPackage.*;
+		class PackageTestApp {
+			public static void main(String[] args) {
+				Car c = new Car();
+				c.increaseSpeed();
+				c.increaseSpeed();
+				c.decreseSpeed();
+				System.out.println(c.getSpeed());
+			}
+		}
+- Generics in Java
+	class LinkList<T> {
+		private LinkListNode<T> m_head = null;
+		private LinkListNode<T> m_last = null;	
+		private class LinkListNode<T> {
+			T m_val;
+			LinkListNode<T> m_next = null;
+			LinkListNode(T val) {
+				m_val = val;
+			}
+			T getVal() {
+				return m_val;
+			}		
+			void setNext(LinkListNode<T> next) {
+				m_next = next;
+			}
+			LinkListNode<T> getNext() {
+				return m_next;
+			}
+		}
+
+		void add(T val) {
+			LinkListNode<T> node = new LinkListNode<>(val);		
+			if(m_last == null) {
+				m_last = m_head = node;
+			} else {
+				m_last.setNext(node);
+				m_last = node;
+			}
+		}
+
+		int getLength() {
+			LinkListNode<T> node = m_head;
+			int length = 0;
+			while(node != null) {
+				++length;
+				node = node.getNext();
+			}
+			return length;
+		}
+
+		boolean remove(int index) {
+			LinkListNode<T> prevNodeToRemove = null;
+			LinkListNode<T> nodeToRemove = null;
+			LinkListNode<T> node = m_head;
+			int currentIndex = 0;
+			while(node != null && index < currentIndex) {
+				++currentIndex;
+				prevNodeToRemove = nodeToRemove;
+				nodeToRemove = node;
+				node = node.getNext();
+			}
+
+			if(m_last == nodeToRemove) {
+				m_last = prevNodeToRemove;
+			}
+
+			if(nodeToRemove == null) {
+				return false;
+			} else if(nodeToRemove == m_head) {
+				m_head = m_head.getNext();
+			} else {
+				prevNodeToRemove.setNext(nodeToRemove.getNext());
+			}
+			return true;
+		}
+		void display() {
+			LinkListNode<T> node = m_head;		
+			while(node != null) {
+				System.out.println(node.getVal());
+				node = node.getNext();
+			}
+		}
+	}
+	class LinkListApp {
+		public static void main(String[] args) {
+			// This is called diamond syntax, Java compiler tries to find the right hand side type
+			// automatically. This works from Java 7.
+			LinkList<String> list = new LinkList<>();
+			// list.add(2);
+			// list.add(5);
+			// list.add(8);
+			list.add("Sunny");
+			list.add("Sunil");
+			list.add("Shah");
+			list.display();
+		}
+	}
+- Generic Method:
+	// Here we limit the input only to classes derived from Number
+	// If we need class to be derived from B1 and implements 
+	// B2 and B3 interface ten it can be specified as <T extends B1 & B2 & B3>
+	class Pair<K extends Number,V> {
+		public K key;
+		public V val;
+		Pair(K k,V v) {
+			key = k;
+			val = v;
+		}
+	}
+
+	class Checker {
+		static<K extends Number,V> boolean equals(Pair<K,V> p1, Pair<K,V> p2) {
+			return p1.key.equals(p2.key) && p1.val.equals(p2.val);
+		}
+	}
+
+	Pair<Integer, String> p1 = new Pair<Integer, String>(2,"Sunny");
+	Pair<Integer, String> p2 = new Pair<Integer, String>(3,"Shah");
+
+	// Java compiler automatically find out the type, If it can't and gives error then call, 
+	// Checker.equals<Integer,String>(p1,p2);
+	if(Checker.equals(p1,p2)) { 
+		System.out.println("It is same!");
+	}
+- Exceptions
+	- Catch specify requirement
+		- Try block should handle the exception type that it's enclosed code can send
+		- Function should specify the checked exceptions that can occur in the function. It should be specified with **throws** keyword
+	Three types of exceptions
+		1. Checked exceptions
+			These are exceptions that a well-written applications should recover from. For example java.io.FileReader gives exception java.io.FileNotFoundException, This should be handled by the code.
+		2. Unchecked exceptions
+			2.1. Errors
+				Errors which are not because of the code but because of the external failure, for example if harddisk fails while reading the file then java gives java.io.IOError, this can be handled in the code or if can not be handle app should just log the error and exit.
+			2.2. Runtime exceptions
+				These are the exceptions that are because of the bug in the code for example NullPointerException when application tries to access null reference 's method. These kind of bugs can not be handled, better just log the error and exit.
+	- Bypassing catch and specify requirement is possible by throwing only unchecked exceptions instead of checked exception but this reduces the readability of the code.
+- Example of checked and unchecked exception code.
+	import java.io.*;
+	import java.util.List;
+	import java.util.ArrayList;
+
+	class ListOfNumbers {
+		private List<Integer> list;
+		private static int SIZE = 10;
+
+		ListOfNumbers() {
+			list = new ArrayList<>(SIZE);
+			for (int i=0; i<10; i++) {
+				list.add(new Integer(i));
+			}
+		}
+
+		void writeFile() {		
+			try{
+				//Below line causes an IOException, If test subdirectory is not already created
+				//PrintWriter out = new PrintWriter(new FileWriter("./test/output.txt",false));
+				PrintWriter out = new PrintWriter(new FileWriter("./output.txt",false));
+				//Below commented code causes IndexOutOfBoundsException
+				//for (int i=0; i<SIZE+1; i++) {
+				for (int i=0; i<SIZE; i++) {					
+					Integer val = list.get(i);
+					System.out.println(val);				
+					out.println("Value = " + val);					
+				}
+				out.close();
+			//Below one is checked exception, Don't include this and you get compilation error
+			} catch(IOException a) { 
+				System.out.println("Exception");
+			} 
+			//IndexOutOfBoundsException is Unchecked exception(Runtime Exceptions),
+			//Won't get compiler error, IF it is not present in the code.
+			catch(IndexOutOfBoundsException e) {
+				System.out.println("IndexOutOfBoundsException");
+			}
+		}
+	}
+
+	class ExceptionApp {
+		public static void main(String[] args) {
+			ListOfNumbers list = new ListOfNumbers();
+			list.writeFile();
+		}
+	}
+- Group exceptions in catch statement
+	- Example, Below catch block handles both IndexOutOfBoundsException and IOException
+		catch(IndexOutOfBoundsException|IOException ex) {
+			System.out.println("Exception");
+		}
+	-  If a catch block handles more than one exception type, then the catch parameter is implicitly final. In this example, the catch parameter ex is final and therefore you cannot assign any values to it within the catch block.
+- Finally Statement
+	- Finally statement always gets executed after try block gets finished, In the case of exception, and even in the case of return,break,continue. No matter what, finally code block will always get executed. So it is safe to use it even if we don't use exception in the function.
+	Example:
+		try{
+			//Even in the case of return, finally will get called.
+			// if(true)
+			// 	return;
+
+			//Below line causes an IOException, If test subdirectory is not already created
+			//PrintWriter out = new PrintWriter(new FileWriter("./test/output.txt",false));
+			PrintWriter out = new PrintWriter(new FileWriter("./output.txt",false));
+
+			//Below commented code causes IndexOutOfBoundsException
+			//for (int i=0; i<SIZE+1; i++) {
+			for (int i=0; i<SIZE; i++) {
+				Integer val = list.get(i);
+				System.out.println(val);				
+				out.println("Value = " + val);				
+			}
+			out.close();		
+		} catch(IndexOutOfBoundsException|IOException a) {
+			System.out.println("Exception");
+		} finally {
+			System.out.println("In Finally");
+		}
+- If function throws exceptions then checked ones need to be specified, unchecked exception can also be thrown but it is optional
+	- Example
+		void writeFile() throws IOException, IndexOutOfBoundsException 
+- New thread:
+	- Two ways
+		- either extend Thread class and call it's start method and code in run() will get executed in separate thread.
+		- Inherit class from Runnable interface and use it like below			
+			class TestHelloThread implements Runnable {
+				public void run() {
+					for (int i=0; i<100; i++) {
+						try {
+							Thread.sleep(700);
+						} catch(Exception e) {
+							System.out.println("Break Thread " + i);
+							return;	
+						}
+						System.out.println("Thread " + i);
+					}
+				}
+			}
+
+			class ThreadApp {
+				public static void main(String[] args) {
+					Thread t = new Thread(new TestHelloThread());
+					t.start();
+					for (int i=0; i<10; i++) {
+						try {
+							Thread.sleep(500);
+						} catch(Exception e) {
+							
+						}
+						System.out.println("Main " + i);
+					}
+					//Send interrupt to the thread.
+					t.interrupt();
+				}
+			}
+- Thrad.join() to wait for another object to merge.
+- AutoLocking with synchronized method, If an object 's methods get accessed from different threads then with synchronized keyword, these methods will get executed synchronously.
+	Example
+		public synchronized void decrement() 
+- synchronized statement, Pass object in brackets.
+	synchronized(this) {
+        lastName = name;
+        nameCount++;
+    }
+- IO
+	- FileInputStream and FileOutputStream are for binary file read-write.
+	- FileReader and  FileWriter are for text file reading
+	- BufferedInputStream and BufferedOutputStream can be used along with FileInputStream and FileOutputStream to fasten the buffered IO
+	- Scanner 
+- Collections
+	- for (String element : c)
+	- Streaming
+		import java.util.*;
+
+		class Person {
+			public int age;
+			public int weight;
+			public String name;
+
+			Person(int age, int weight, String name) {
+				this.age = age;
+				this.weight = weight;
+				this.name = name;
+			}
+			public String toString() {
+				return String.format("%1$-10s", name) + " , " + age + " , " + weight;
+			}
+			public int getAge() {
+				return age;
+			}
+		}
+
+		class StreamApp {
+			public static void main(String[] args) {
+				List<Person> list = new  ArrayList<>();
+				list.add(new Person(29,92,"Sunny"));
+				list.add(new Person(31,70,"Hema"));
+				list.add(new Person(16,62,"Ami"));
+				list.add(new Person(56,78,"Sunil"));
+				list.add(new Person(54,63,"Bina"));
+				//double avgAge = list.stream().mapToInt(Person::getAge).average().getAsDouble();
+				double avgAge = list.stream().mapToDouble(Person::getAge).reduce(0.0,(sum, age)->sum+age/list.size());
+				System.out.println("avgAge " + avgAge);
+			}
+		}
+- Create jar file for executable
+	- Create Manifest file and specify Main-Class like below, save the file as MANIFEST.MF
+		Manifest-Version: 1.0
+		Created-By: 1.8.0_25 (Oracle Corporation)
+		Main-Class: StreamApp
+	- Create the jar file with below command
+		jar cmf ./META-INF/MANIFEST.MF StreamApp.jar ./*.class
+		- Another option is to use e command to specify Main-Class name after jar file
+			 jar cfe StreamApp.jar StreamApp ./*.class
+	- To execute the jar file
+		 java -jar path/app.jar
+	- View the contents of the jar file
+		jar tf jar-file
+	- Update the content of the jar file
+		jar uf TicTacToe.jar images/new.gif
+	- Additional jar-file dependency can be specified in manifest file, so that specifying -classpath while execution can be avoided
+		- Example, suppose the jarfile we are supposed to create depends on MyUtils.jar file which exists in the same dir as our jar file, then dependency can be specified below in manifest file.
+			Class-Path: MyUtils.jar
+- JDBC
+- Install, MySQL, and MySQL-JDBC driver
+- Set classpath in ~/.bashrc 
+	export CLASSPATH=$CLASSPATH:/usr/share/java/mysql.jar
+- Hello World example of JDBC, steps
+	- Make connection
+		- Specify database-server-type,server-IP,port,username,password,database-name
+	- Query data
+		- Create statement
+		- Close statement
+	- close connection
+- Example
+	import java.sql.*;
+	import java.util.Properties;
+	import com.mysql.jdbc.Driver;
+
+	public class TestJDBCApp
+	{
+	    // Connection string. ap is the database the program
+	    // is connecting to. You can include user and password after this
+	    // by adding (say) ?user=paulr&password=paulr. Not recommended!
+
+	    private static final String CONNECTION = "jdbc:mysql://127.0.0.1/ap";
+
+	    public static void main(String[] args) 
+	    {   
+	        Properties p = new Properties();
+	        p.put("user","root");
+	        p.put("password","shah");
+
+	        try(Connection c = DriverManager.getConnection(CONNECTION,p);
+	            Statement stmt = c.createStatement();) {
+	            ResultSet rs = stmt.executeQuery("SELECT vendor_id,last_name,first_name FROM ap.vendor_contacts;");            
+	            while (rs.next()) {
+	                int vendor_id = rs.getInt("vendor_id");
+	                String first_name = rs.getString("last_name");
+	                String last_name = rs.getString("first_name");
+	                System.out.println("vendor_id = " + vendor_id + " first_name " + first_name + " last_name " + last_name);
+	            }
+	        }
+	        catch(SQLException e) {
+	            System.out.println("SQLException for JDBC" + e.getLocalizedMessage());
+	        }
+	    }
+	}
+- Setting up connection
+	- Create connection url
+		- Syntax
+			jdbc:mysql://[host][,failoverhost...]
+			    [:port]/[database]
+			    [?propertyName1][=propertyValue1]
+			    [&propertyName2][=propertyValue2]...
+		- Example:
+				"jdbc:mysql://127.0.0.1/ap";
+	- In Properties, provide user and password details
+		- Example
+			Properties p = new Properties();
+			p.put("user","root");
+			p.put("password","shah");
+	- Try to establish connection by calling getConnection method of DriverManager
+		Connection c = DriverManager.getConnection(CONNECTION,p);
+- There are three types of SQL statements available in JDBC
+	- Statement			 : For queries without parameters
+	- Prepared Statement : Compiled queries with parameters
+	- Callable Statement : For stored procedures which may contain input and output parameters, With JDBC it is even possible to write database independent stored procedures in JAVA language (No need to learn PL/SQL).
+- Below are the methods of Statement class to execute queries
+	- execute		- Returns true if query is successful, call statement.getResultSet to get the resultset
+	- executeQuery	- Returns ResultSet, Used for select
+	- executeUpdate - Returns total no of changed rows, Use for INSERT, UPDATE, DELETE statements
+
+- SQLException
+	- ErrorMessage: SQLException::getMessage()
+	- ANSI SQL Errorcode - SQLException::getSQLState()
+- Resultset types
+    TYPE_FORWARD_ONLY: The result set cannot be scrolled; its cursor moves forward only, from before the first row to after the last row. The rows contained in the result set depend on how the underlying database generates the results. That is, it contains the rows that satisfy the query at either the time the query is executed or as the rows are retrieved.
+    TYPE_SCROLL_INSENSITIVE: The result can be scrolled; its cursor can move both forward and backward relative to the current position, and it can move to an absolute position. The result set is insensitive to changes made to the underlying data source while it is open. It contains the rows that satisfy the query at either the time the query is executed or as the rows are retrieved.
+    TYPE_SCROLL_SENSITIVE: The result can be scrolled; its cursor can move both forward and backward relative to the current position, and it can move to an absolute position. The result set reflects changes made to the underlying data source while the result set remains open.
+
+	The default ResultSet type is TYPE_FORWARD_ONLY.
+
+	There are two concurrency levels of ResultSet:
+	    CONCUR_READ_ONLY: The ResultSet object cannot be updated using the ResultSet interface.
+	    CONCUR_UPDATABLE: The ResultSet object can be updated using the ResultSet interface.
+	The default ResultSet concurrency is CONCUR_READ_ONLY.
+- Code to update through cursor
+	import java.sql.*;
+	import java.util.Properties;
+	import com.mysql.jdbc.Driver;
+
+	public class TestJDBCApp
+	{
+	    // Connection string. ap is the database the program
+	    // is connecting to. You can include user and password after this
+	    // by adding (say) ?user=paulr&password=paulr. Not recommended!
+
+	    private static final String CONNECTION = "jdbc:mysql://127.0.0.1/ap";
+
+	    public static void main(String[] args) 
+	    {   
+	        Properties p = new Properties();
+	        p.put("user","root");
+	        p.put("password","shah");
+
+	        try(Connection c = DriverManager.getConnection(CONNECTION,p);
+	            Statement stmt = c.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE)) {
+	            ResultSet rs = stmt.executeQuery("SELECT vendor_id,last_name,first_name FROM ap.vendor_contacts;");
+	            while (rs.next()) {
+	                int vendor_id = rs.getInt("vendor_id");
+	                String last_name = rs.getString("last_name") ;
+	                String first_name = rs.getString("first_name");
+	                rs.updateString("last_name", "Shah " + last_name); // UPDATE CODE LINE 1
+	                rs.updateRow();									   // UPDATE CODE LINE 2
+	                System.out.println("vendor_id = " + vendor_id + " first_name " + first_name + " last_name " + last_name);
+	            }
+	        }
+	        catch(SQLException e) {
+	            System.out.println("SQLException for JDBC" + e.getLocalizedMessage());
+	        }
+	    }
+	}
+- Example of update query through Statement
+		Statement stmt = c.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE)) {
+        int totalRowsChanges = stmt.executeUpdate("UPDATE vendor_contacts SET last_name=SUBSTRING(last_name,LOCATE(' ',last_name));");
+        System.out.println("totalRowsChanges = " + totalRowsChanges);
+- Parameterized statements and Batch statements executes (Except SELECT), 
+- Note: After serting the values of PreparedStatement, It stays as it is, To clear all parameter call method PreparedStatement::clearParameters();
+con.setAutoCommit(false);
+	PreparedStatement pstmt = con.prepareStatement(
+	                              "INSERT INTO COFFEES VALUES( " +
+	                              "?, ?, ?, ?, ?)");
+	pstmt.setString(1, "Amaretto");
+	pstmt.setInt(2, 49);
+	pstmt.setFloat(3, 9.99);
+	pstmt.setInt(4, 0);
+	pstmt.setInt(5, 0);
+	pstmt.addBatch();
+
+	pstmt.setString(1, "Hazelnut");
+	pstmt.setInt(2, 49);
+	pstmt.setFloat(3, 9.99);
+	pstmt.setInt(4, 0);
+	pstmt.setInt(5, 0);
+	pstmt.addBatch();
+
+	// ... and so on for each new
+	// type of coffee
+
+	int [] updateCounts = pstmt.executeBatch();
+	con.commit();
+	con.setAutoCommit(true);
+- If one of the batch execution statement fail then we get BatchUpdateException and successful update counts can be received from method BatchUpdateException::getUpdateCounts()
+	Example:
+		int [] updateCounts = b.getUpdateCounts();
+
+	    for (int i = 0; i < updateCounts.length; i++) {
+	        System.err.print(updateCounts[i] + "   ");
+	    }
+- Insert statement via cursor set
+	Example
+	public void insertRow(String coffeeName, int supplierID,
+	                      float price, int sales, int total)
+	    throws SQLException {
+
+	    Statement stmt = null;
+	    try {
+	        stmt = con.createStatement(
+	            ResultSet.TYPE_SCROLL_SENSITIVE
+	            ResultSet.CONCUR_UPDATABLE);
+
+	        ResultSet uprs = stmt.executeQuery(
+	            "SELECT * FROM " + dbName +
+	            ".COFFEES");
+
+	        uprs.moveToInsertRow();
+	        uprs.updateString("COF_NAME", coffeeName);
+	        uprs.updateInt("SUP_ID", supplierID);
+	        uprs.updateFloat("PRICE", price);
+	        uprs.updateInt("SALES", sales);
+	        uprs.updateInt("TOTAL", total);
+
+	        uprs.insertRow();
+	        uprs.beforeFirst();
+	    } catch (SQLException e ) {
+	        JDBCTutorialUtilities.printSQLException(e);
+	    } finally {
+	        if (stmt != null) { stmt.close(); }
+	    }
+	}
+- After inserting a row with the ResultSet.insertRow, you should move the cursor to a row other than the insert row. For example, this example moves it to before the first row in the result set with the method ResultSet.beforeFirst. Unexpected results can occur if another part of your application uses the same result set and the cursor is still pointing to the insert row.
+

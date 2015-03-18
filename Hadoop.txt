@@ -1,0 +1,899 @@
+Hadoop design:
+	- Distributed - Master-Slaves architecture
+	- Fault Tolerant
+		- Hardware - Software failure
+		- Disk Failure
+		- Network-card Failure
+	- Runs on commodity hardware
+	- Uses Java language
+		- Mature common language
+		- Each daemon runs in it's own JVM
+			- On every client Data-Node and task-tracker runs
+			- When a new Map-Reduce task comes
+			- Task-tracker creates a new JVM for map and another one for reduce.
+			- With each JVM it is possible to provide maximum space and one program 
+				does not affect another program's performance.			
+	- Abstract away all infrastructure and distributed heavy-lifting 
+		- Map reduce framework
+			- Raw Java code
+				- Well-written Java code always performs the best in Hadoop
+			- Streaming
+				- Any language that supports std-in and std-out read and write can implement Map-Reduce
+				- All other components (like Partitioner, Combiners ) need to be written in Java (25-30% slower compared to Java)
+			- Hive/Pig
+				- 10% slower compare to Java
+				- Very high level abstractions
+Hadoop Hardware
+	- Master Node
+		- 2-3 per cluster (very Large one)
+		- Single node of failure
+		- Carrier class hardware
+		- Hadoop daemons are memory hungry
+		- At-least 24 GB of ram
+		- Multiple RAID-0 harddisks
+		- Hot swappable harddisks
+		- Multiple-Redundant NIC cards
+		- Multiple power supplies
+		- At least dual, quad code 2.6 GHz processor
+		- At least 2 master machines
+	- Slave Node
+		- Range from 4-4000
+		- Not single point of failure
+		- Expected to fail/recover		
+		- Commodity
+		- More harddisks
+		- 7200 RPM disks
+		- No redundancy
+		- One or two quad code 2.6 GHz processor
+		- SINGLE NIC and Power supply
+		- Upper-limit 32 TB/Node, More than that and node-failure could swamp the network
+		- >=24 GB of RAM
+	- Network should be 20% of the budget
+		- 1 GBPS is fine 
+		- 10 GBPS is good for larger clusters
+		- Don't go for either expensive hardwares for slaves or Latest and greatest Hadoop.
+- Monitoring
+	- Hardware problems need to be found and addresses ASAP especially on single point of failure
+	- Disc and NIO don't fail in binary mode (Working-NotWorking) Usually slow IO means problematic hardware
+	- Monitor Hadoop Daemons
+	- Clodera Manager excels in monitoring
+- Cluster size ()
+	- POC Mode
+		- 4-6 slave nodes
+		- Consider Amazon EC2 or EMR (Elastic Map-Reduce)
+	- Medium
+		- 20-30 slave nodes
+		- Most common
+	- Large
+		- 50-4000 nodes
+		- Upgrade master hardware to high availability
+- Slave nodes added based on 
+	- Example
+		- If company needs 10TB RAW / Month
+		- Our slave nodes have 8 TB space
+		- Intermediate data is 20-30% (Storage to stop Map output before reducer take it up)
+		- Replication level is 3
+		- Per slave node actual storage is ( 8 - 2)/3 = 2 TB
+		- Which means 5 slave nodes need to added every month
+- Master Node Daemons
+	- Name node
+	- Secondary Name Node
+	- Job tracker
+- Slave Node Daemons
+	- Task tracker
+	- Data Node
+- Hadoop Ecosystem
+	- Move data in or out of the Hadoop ( Sqoop, Storm, Flume)
+	- Make Hadoop Easy ( Hive, Pig, Oozie)
+	- Build new software on top of Hadoop ( HBase, Impala )
+	- Major Components Of Ecosystem
+		- Hive
+			- SQL like interface
+		- Pig
+			- Functional interface
+		- Sqoop
+			- Import export data from RDBMS
+		- Flume
+			- Stream realtime data to HDFS
+		- Oozie
+			- Scheduler and organizer for Map-Reduce jobs or Pig/Hive scripts
+		- Hue
+			- Hadoop GUI for users
+		- Cloudera Manager
+			- Hadoop GUI for Administrator 
+		- HBase
+			- BigTable Database engine on top of HDFS
+		- Impala
+			- SQL Query engine for Hadoop, 70% faster than Hive/Pig
+		- Mahout
+			- Machine learning framework for Hadoop
+		- AVRO
+			- Data transfer protocol, for data serialization and deserialization
+Master Server Daemons
+	- Namenode
+		- Handles storage metadata
+		- Keeps metadata in memory
+	- Secondary Namenode
+		- "Performs" check pointing on Namenode
+	- Jobtracker
+		- Co-ordinates processing of the data
+		- co-ordinates scheduling of job-processing
+	- Considerations for hardware
+		- Have a separate hardware for secondary name node
+		- In the case of failure of namenode hardware, Secondary name node can be made name-node in <1 hour
+		- If cluster usage grows then JobTracker can be moved to separate hardware
+Slave Server Daemons
+	- Datanode
+		- Handles raw data reads and writes
+		- No longer have separate central data store
+	- Tasktracker
+		- Handles individual task assignments
+Three runnodes
+	- Local JobRunner
+		- Fast (In seconds)
+		- Local code debug
+		- Testing code
+		- Can run from IDE
+	- Pseudo JobRunner
+		- Slower (10s seconds)
+			- Time required because each JVM is in seconds
+		- Test code in real environment
+		- Test data (subsets)
+			- 3-5%
+	- Full Distributed
+		- Fully distributed
+			- Slowest (Maybe hours)
+			- Test Data (Subsets)
+				- 10-20%
+
+HDFS
+	- Distributed Filesystem
+	- Master and Slave daemons
+		- Namenode
+		- Secondary Namenode
+		- Datanode - On client/slave
+	- Files split in to chunks/blocks and get distributed on the slaves, 
+		- Each block is replicated on default 3 times for durability and concurrent access.
+	- HDFS is write once and read many (WORM) times memory storage.
+		- There are no appends or edits, Append and edit is always rewrite.
+	- Block size is by default 64 MB and is resizable
+	- Disk space is not wasted if file is not of the multiple of the block size. Last block is of smaller size in that case.
+	- If replication factor is 3 then two replicas are stored in same remote rack because compare to node failure, chances of rack failure are very less. This design also makes write a less heavy operation compare to storing all replicas on different racks.
+
+Namenode
+	- Server for HDFS
+	- Maintains the metadata of 
+		- Which blocks of file exists where.
+		- Permission, Folderstructure
+	- Read and write of data does not pass/flow through namenode.
+	- Metadata is stored on both disk and memory
+		- Very memory hungry because all the metadata is also in the memory
+		- If we loose namenode, we loose HDFS
+Datanode
+	- Does actual read-write, Client sends data to and receives data from directly datanode
+	- Stores actual datablocks.
+
+Namenode storage:
+	- Namenode stores data in two files
+		- fsimage (point in time snapshot)
+		- Edit log (deltas of filesystem since changelog)
+	- Edit log is merged with fsimage periodically
+		- Every time the namenode is restarted
+		- By secondary namenode
+	- Write of editlog and fsimage are synchronously done to all attached directories
+		- We can have these files written to separate two RAID disks and one NFS mount
+Heartbeats 
+	- Both the processing and HDFS daemons use heartbeats 
+	- Datanodes sends by default heartbeat to namenode every three seconds
+	- Meaning of heartbeat
+		- I am alive
+		- I am ready for read-write
+	- If datanode does not send 10 continuous heart-beats (30 seconds as per default setting) then it is taken out of rotation
+	- If datanode does not send any heartbeats for 10 minutes then it's blocks are re-replicated.
+	- Every one hour datanode sends the block reports to namenode
+	- If namenode sees some extra nodes or less nodes then it asks other datanodes to replicate/delete the nodes to maintain the replication ratio
+	- At the time of namenode restart, Datanodes resend the block report.
+Checksum
+	- HDFS also uses checksums to ensure an integrity.
+	- Write time checksum is generated on every block write
+	- Written as a file, directly next to the block on the harddisk of the datanode
+	- On every read checksum is calculated again and read time checksum is compared with write time checksum
+		- If a block is corrupt, client is redirected to another datanode
+		- Namenode is notified of under replication and namenode handles the re-replication of the block
+	- By default every three weeks there is checksum verification scheduled by datanode.
+Write walkthrough of HDFS
+	- Clients cuts input file in to the "block size"
+	- It sends total no of blocks and "replication factor" to name node.
+	- Name node responds with the pipeline of datanodes to write first block to
+	- Client then writes the first block to the first node in the pipleline
+	- 2nd, 3rd and all rest then write the data to each other
+	- 3rd informs 2nd of the copy completion, similarly 2nd informs 1st of the copy completion and then 1st DN informs client of copy completion	
+	- Client notifies NN of block write
+	- NN then responds with the pipeline of blocks to write the second block to...
+	- Repeat till the last node is written and file is closed in NN.
+	- Once file is closed, It becomes immutable.
+	- hadoop fs -put filename /path/in/hdfs
+Failure in write cases:
+	- If any of the DN is having bad HDD
+		- Write fails
+		- DN moves on to the another node in the pipeline and tries to get at least one write done
+Precautions for partial-write
+	- HDFS can do partial write, If client crashes
+	- To avoid this create a temp directory for all partial-write files and move them to actual location once they are done.
+Read walkthrough of HDFS
+	- Client contacts Name node with filename
+	- Namenode responds back with a pipeline of datanodes for each block
+	- Reads are from the closest machine in the Data center.
+		- If data are available in the same machine, If not then search for in the same rack
+	- Request for all the block, once received reassemble the file from blocks and close the file
+Functionality of secondary namenode
+	- It is for checkpoint purpose only
+	- After every one hour (default time), It copies and combines fsimage and edits log file from namenode 
+		and creates the new fsimage file and then writes that newer fsimage back to namenode.
+	- Secondary namenode only does this
+	- It is ok, If secondary name node is down for short period of time 
+	- In that case edit log file will get bigger and bigger
+	- Bigger the edit log file, the slower the recovery time from failure because namenode will do the compaction at the time of starting up.
+	- Secondary namenode also need as much memory as primary namenode because it loads fsimage and edit log in memory
+- Standby Namenode
+	- Hot failover  + Secondary namenode 
+	- Available in High Availability option in CDH
+- hadoop fs -put local_dir hdfs_dir
+- hadoop fs -get hdfs_dir #Brings hdfs_dir to local
+- HDFS webUI http://localhost:50070
+
+Mapreduce
+	- If there are no reducers then output of map will go to HDFS otherwise reduce output will go to HDFS.
+	- Deciding how many mappers to run is left to hadoop
+	- Hadoop uses total number of input split/storage block as total number of mappers
+	- If multiple blocks per map is assigned then hadoop will have to transfer the data from other datanodes.
+	- Multiple reducers
+		- When the result of mapper won't fit one machine
+		- or When one reducer will take too much time
+		- When output data is simply modularized like month-wise sales,...
+	- MapReduce-1
+		- JobTracker (Master)
+		- TaskTracker (Slave)
+		- Map Reduce Tasks(Started by TaskTracker in separate JVM)
+		- Client
+	- Process of MapReduce-1
+		- Client submits job to JobTracker		
+		- Jobtracker is constantly pinged by tasktrackers
+		- Jobtracker based on data locality, submits the map and reduce jobs to tasktracker		
+		- Tasktracker fires up map and reduce tasks and submits the result back to jobtracker including error
+		- Tasktracker reassigns failed jobs.
+		- Tasktracker updates the result.
+	- Important config files resides in etc/hadoop
+		- mapred.-site.xml
+			- Core mapreduce daemon config
+			- Sample file <hadoop-installation-dir>/etc/hadoop/mapred-site.xml
+					<configuration>
+						<property>
+					    	<name>mapred.child.java.opts</name>
+					    	<value>-Xmx3572m</value>
+					  </property>
+					  
+					  <property>
+					      <name>mapreduce.map.java.opts</name>
+					      <value>-Xmx3572m</value>
+					  </property>
+					  
+					  <property>
+					      <name>mapreduce.reduce.java.opts</name>
+					      <value>-Xmx3572m</value>
+					  </property>
+					  
+					  <property>
+					      <name>mapreduce.map.memory.mb</name>
+					      <value>3700</value>
+					  </property>
+
+					  <property>
+					      <name>mapreduce.reduce.memory.mb</name>
+					      <value>3700</value>
+					  </property>
+
+					  <property>
+					    <name>mapreduce.framework.name</name>
+					    <value>yarn</value>
+					  </property>
+					</configuration>			
+		- hadoop-env.sh
+			- Environment variables used for hadoop 
+			- like for JAVA_HOME, HADOOP_PREFIX
+- Hadoop job submission
+	- hadoop jar map-reduce.jar class-with-main-method input-dir output-dir
+		example
+			hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-2.5.2.jar grep input output 'dfs[a-z.]+'
+	- hadoop jar
+		Informs client to submit job to job-tracker, configured in mapred-site.xml
+	- map-reduce.jar
+		Contains job config and map and reduce code.
+	- class-with-main-method
+		- Class name from the jar file to execute (Need to have main method)
+	- input-dir
+		- input path in HDFS
+	- output-dir
+		- output path in HDFS, If this dir exists then hadoop won't continue the job. Hadoop does not overwrite automatically.
+- Jar file contents
+	- Driver code (configuration)
+	- Mapper
+	- Reducer
+- Compiling map-reduce code
+	javac -classpath `hadoop classpath` *.java
+- create jar file from compiled code
+	jar cvf mycode.jar *.class
+- Running a job file
+	- Client submits a job to Jobtracker
+	- Jobtracker contacts namenode to get the locations of the input files
+	- Jobtracker sends out tasks to machines based on data locality
+	- Tasktrackers start map node
+	- When each mapper finishes, It writes the output to local disk
+	- Once a percentage of mapper is done, Jobtracker inform tasktracker to reducers
+		- Reducer collects the output of mapper from tasktracker machines
+	- MR tasks report the progress-error-complete to Tasktracker (Each task gets executed in separate JVM)
+	- Tasktrackers inform progress-error-complete to Jobtracker
+	- Jobtracker starts spins up other map reduce tasks to deal with errored
+	- Once all the mappers are complete, Jobtracker informs tasktracker to run the reducer.
+	- Reducer output is written to HDFS, If no mapper is available then mapper output is written to HDFS
+	- Job is completed and intermediate data is deleted.
+- Speculative execution
+	- If one of the machine is running particular map task slower than 20% (default) than others then hadoop tries to start the same task on some other machine, 
+	- Whichever finishes first is the winner.
+	- It is on for map and reduce both, Recommended to turn it off for reducer. 
+		- In the case of Month wise sales total reducer, It will take too much time for November month reducer due to high sales due to Diwali.
+	- Control it by setting true or false to property mapred.reduce.tasks.speculative.execution in mapred-site.xml
+- Logs of map-reduce job
+	- Logs are persisted by Tasktracker and Jobtracker.
+- Rackawareness
+	- Inform hadoop about racks in the cluster
+	- Hadoop then writes first block on one rack and then tries to write subsequent blocks on another racks
+	- Rack-awareness can be setup by informing namenode in below two possible ways
+		- Recommended, Embed rack information in hostname. Example s123-r1, s555-r2
+		- Create a mapping file and provide it to namenode. Example: server123:rack1,server555:rack2
+			- This file can be provided to hadoop by setting property "topology.script.file.name" to the position of the file.
+		- After setting this file, new writes will be rack-aware. Old writes won't get changed. It will still be in non-rack-aware state
+- Comparators
+	- Mapper sort the output
+	- Reducer collects output from all mappers
+	- Reducer do the merge short and combines the output of map based on keys
+	- This entire process is called shuffle and sort
+	- Secondary sort can be done by writing custom comparator
+	- Implement WritableComparator interface and set it to job via job.setSortComparatorClass(MyComparator.class)
+- Combiner
+	- Combiner is a pre-reducer
+	- Completely optional, Used to reduce the network traffic to pass-on the intermediate data.
+	- It also reduced the load reducer need to do and there by reduced the time required to process the data
+	- Reducer class can be reused to work as combiners, Use Job method. job.setCombinerClass(Reducer.class)
+- Partitioner 
+	- Creates a custom partition of intermediate data.
+	- Partitioner controls which keys go to which reducer
+	- The default partitioner just evenly divides the keys amongst the number of reducers
+		- Example
+			- 1000 keys and 5 reducer means, each reducer gets random 200 keys
+	- Hadoop ships with TotalOrderPartitioner, It ensures that all keys going to Reducer-0 is less than Reducer-1
+		- TotalOrderPartitioner just removes the randomness
+	- Can be specified as Job.setPartitioner(MyPartitioner.class)
+	- Example
+		- If There are 12 reducers working on each month's output
+		- Partitioner will create try to divide mapper output in to 12 separate intermediate data, then Each reducer will collect the data they need
+	- Implementation
+		- Set partition class and total no of partitions in Job
+			job.setPartitionerClass(WordCountPartitioner.class);
+		    job.setNumReduceTasks(3);
+		- Partitioner Class 
+			import org.apache.hadoop.io.IntWritable;
+			import org.apache.hadoop.io.Text;
+			import org.apache.hadoop.mapred.JobConf;
+			import org.apache.hadoop.mapreduce.Partitioner;
+			public class WordCountPartitioner extends Partitioner<Text /*Mapper Output Key Type*/, IntWritable /*Mapper Output Value Type*/> {
+			    public int getPartition(Text key, IntWritable value, int numReduceTasks) {
+			    	//For each key Partitioner function returns reducer-no.
+					return reducerNumber;
+			    }
+			}
+- Comparator, Combiner, Partitioner can only be written in Java.
+- Flow
+	- On Mapper machine
+		- Input-HDFS -> Mapper -> Partitioner -> Comparator -> Combiner -> Intermediate data
+	- On Reducer machine
+		- Intermediate Data -> comparator -> Reducer -> Output-HDFS
+Java for MapReduce
+	- When to use Java?
+		- When better performance is required compared to pig or hive
+		- 98% of workload is performed using hive or pig
+		- Developer productivity is higher in hive or pig
+	- Serialization
+		- Mapper write output to intermediate-data 
+		- Access Shuffled data by reducer
+		- Writing final output to HDFS by reducer
+		- Hadoop map-reduce code uses it's own serialization framework
+		- Only classes derived by Writable can be used as key
+		- Only classes derived by WritableComparable can be used as value
+		- Hadoop ships with many classes which implements this and they are box classes (conversion by compiler)
+			- Text for strings
+			- IntWritables for Integer
+			- LongWritable for Long
+			- FloatWritable for double
+Hive, Pig and Impala
+	- Hive and Pig provides alternative to MapReduce
+	- Hive uses it's own SQL like language called HiveQL
+	- Pig uses it's own data flow language
+	- 10-15% Slower than well-written Map-Reduce in Java
+	- Impala meant for low latency interactive queries
+	- Hive and Impala are for better for analytics and Pig is better for ETL
+	- Hive and Pig can be tied up together by Oozie tool
+- Hive
+	- Developed at Facebook
+	- Requires Metastore to be provide hive table to underlying HDFS data mapping
+	- Your data maps well into raw/column format
+	- For SQL pros
+	- Hive and Pig both uses MapReduce and takes atleast seconds
+	- Hive client can be accessed only on client or it can be setup as a HUE or Hive-server where it can be accessed by all by webinterface.
+	- Hiveserver2 via Beeline CLI, JDBC, ODBC
+	- Metastore provides Hive table for data-mapping
+	- Hive interpreter chains multiple pre-built binaries together into an execution path to run MR JOB that performs the query, so it is not possible to get the source-code of the hive statement.
+	- Internal table
+		- Managed by Hive, Hive assumes that no one else is using this table
+		- When we do drop table, Table 's metadata as well as file from HDFS gets deleted
+	- External table
+		- When we do drop table, Only Table 's metadata from hive gets deleted, HDFS file stays intact.
+	- Hive can use partitioned data, If table is of invoice then each month-per-year like 02-13,03-13 can be in different folder
+	- Hive also support Buckets for efficient sampling of data, Buckets is breaking up column in to randomly selected buckets so that data can be run on a small sample.
+	- In the case of internal table, Hive move table to /user/hive/warehouse
+	- Create table example
+		CREATE EXTERNAL TABLE vendors( vendor_id INT, vendor_name STRING, default_account_number INT) COMMENT 'Vendors table from ap database of ML Hands-on Book' ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' LOCATION '/user/sunny/ap/';
+	- Here ROW FORMAT DELIMITED means each new line is new record and fields are terminated by ',' (comma)
+	- File is vendors.csv in /user/sunny/ap/ folder.
+	- To get the details about the structure of table us DESC table_name or DESC EXTENDED table_name
+	- DESC EXTENDED also informs whether table is external or internal
+	- Internal table creation
+		- Example
+			CREATE TABLE test_internal( vendor_id INT, vendor_name STRING, default_account_number INT) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' 
+	- Internal tables can be filled with data via LOAD command
+		- LOAD LOCAL INPATH 'path_on_disk' INTO TABLE hive_table_name
+- Pig
+	- Developed at Yahoo
+	- Good to handle unstructured/semi-structured/complex data
+	- Performing complex ETL
+	- Complex data-flow (Pig gives more control than hive gives)
+	- Atoms
+		- contains a single scalar string values, Example '2.1','Sunny'
+	- Touples
+		- Touples are like rows, Contains ordered sequence of fields
+		- Field can be of anytype (Atom, Touple,databag, map)
+	- Databags
+		- Contains a set of touples, Similar to table
+		- Example
+			{<'sunny.cpp@gmail.com','new-email'>,<'sunnyshah.mca@gmail.com','old-email'>}		
+	- Map
+		- Key value pairs, Map of "String",X (Here X can be Atom, Touple, Databag or Map)
+		- Example 
+			['name':'Sunny']
+	- If DUMP or STORE statement is found, then pig gets submitted as map-reduce to server.
+	- PIG does not provide map-reduce code. It runs set of precompiled map-reduce.
+- Impala
+	- Developed at Cloudera
+	- Separate set of daemons running in a cluster
+	- Impalad daemon is required to run on each slave, No Jobtracker or task tracker required
+	- statestored daemon which requires to run on single machine/master node
+	- Not fault tolerant
+	- Realtime interactive queries on tables
+	- Output in subseconds
+- Data import and export
+	- Flume,Storm, Kafka, Kinesis
+		- These tools are for real-time ingestion and analysis
+		- Involve multiple distributed agents who pull or push data from one another
+		- They allow de-duplication, filtration,..
+		- Systems are platform agnostic, sink can be NoSQL, HDFS or flat file
+		- Flume is used to pull data from realtime system, It was created to process log files
+		- Flume is only for ingestion
+		- Flume agents have to be written in Java.
+		- Flume vs Storm
+			= Storm
+				- Storm is built for complex realtime streaming analytics
+				- Developed by twitter essentially to process tweet stream.
+				- Worker processes(bolt) can be written in any language, Uses Apache Thrift and JSON over stdin/stdout
+			- Flume 
+				- Flume is built to move massive amount of data to Hadoop/NoSQL
+				- Easy to do this, Just need to write 10-15 lines of config file
+				- Developed by Cloudera
+				- Some analysis can be done but for that purpose Storm is better.
+				- Worker instance if required need to be written in Java
+			- Both are extremely scalable, Adding additional tear in workflow is possible, Adding one node for more parallel work is also possible in both.
+			- Both are opensource and mature.
+		- Flume vs kafka, kinesis, storm
+			- Flume pushes most of the analysis to Hadoop and ideal for log analysis. Where Flume just push the data to hadoop and then we do the analysis by either MR, Pig, Hive or Impala.
+			- kafka, kinesis, storm perform analysis on unterminated data (Streaming data),
+				- These systems can also persist some data for late analysis (Specially Kafka)
+				- Ideal where real time data analysis is required on streaming data.
+		- Flume Architecture
+			- Series of agents that live on linux machines
+			- Each agent is having source, sink and channel
+				- Source (Where data comes from)
+					- Tail to the log
+					- Some network connection for continues data input
+				- Sink (Where data goes)
+					- Remote port
+					- HDFS
+					- Cassandra, Something else
+				- Channel
+					- Buffer between source and sink
+			- Supports transactional streaming, If ack from downstream does not come, node can retransmit
+			- Supports fail-over and horizontal scaling (Handling part of the load)
+			- Data can be processed in between either by native filters like regex or by java extensions
+			- With management tools like puppet and chef, maintenance of hundred of node is possible
+				- which includes sending newer configuration files to nodes.
+				- new configuration get applied on the fly, no restart is required.
+	- SQOOP ( SQL to Hadoop) does Database import and Export
+		- Single process that imports and exports data from RDBS
+		- Does no analysis or filtration itself
+		- Can also import selected data/deltas
+		- Uses map-only job to SELECT or Insert data from/to RDBMS	
+		- SQOOP uses four mappers by default
+		- Developed by Cloudera, Opensource and free
+		- Sqoop
+			- Fat SQOOP client on the client machine which starts a map task in the cluster
+			- Cluster then takes input from Document based systems or RDBS outpus data in to either HDFS, HBase, Hive
+			- Reverse flow is also possible
+		- Sqoop2
+			- Light weight Sqoop2 CLI client/browser
+			- Sqoop server which contains REST, UI-Server, connectors and connects with metadata repo
+			- Server creates map-reduce and executes it on cluster
+			- Can limit raws and columns via LIMIT and WHERE clause
+			- an import CSV and binary files (AVRO or sequence files)
+			- Supports large objects like BLOB and CLOB
+			- Also have commands for database inspection
+				- Show, LIST, 
+			- Use this to parse CSV FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n'
+WebHDFS & HttpFS
+	- Both supports RESTful access to the servers
+	- WebHDFS
+		- Simplest to deploy, just need one change in config file plus restart
+		- Request direct client access to every dn
+	- HttpFS
+		- Requires setup of HTTPfs server
+		- Only HTTPfs server requires direct access to DN
+	- FuseDFS
+		- Lets us mount HDFS filesystem as local dir
+Oozie - Workflow manager
+	- Oozie chains together pull/analyze/push operations in repeatable chunks
+------------------------------------------------------------------------------------------------------
+******************************************YARN********************************************************
+------------------------------------------------------------------------------------------------------
+Components of the YARN
+	- Global Resource Manager		
+	- Node Manager
+	- Application specific application master
+	- Scheduler
+	- Container
+------------------------------------------------------------------------------------------------------
+******************************************MAPREDUCE IN DETAIL*****************************************
+------------------------------------------------------------------------------------------------------
+- If map-reduces uses some external jar file which is not available on all the machines on cluster then use -libjars command and ToolRunner.run(new WordCountNewAPIV2(), args); in the code. Hadoop will copy these jar files in all the machines before running MR Application
+	- The $LIBJARS variable is a comma-separated list of paths to all the library files needed by the Mapper and the Reducer classes that execute on the DataNodes. Here dependencies are comman separated unlike PATH or CLASSPATH
+		Example hadoop jar ~/Downloads/prohadoop/src/main/java/org/apress/prohadoop/c3/wc.jar  WordCountNewAPIV2  -libjars $LIBJARS  /user/sunny/wc output
+	- USe ToolRunner.run method so that configuration gets created with tmpjars property and the same configuration gets passed on to Tool::run(String[] allArgs) method. 
+	- public static void main(String[] args) throws Exception {    	
+    	int rc = ToolRunner.run(new WordCountNewAPIV2(), args);
+    	System.exit(rc);
+ 	  }
+ 	- public  int run(String[] allArgs) throws Exception {
+		Job job = Job.getInstance(getConf());
+    	String[] args = new GenericOptionsParser(getConf(), allArgs).getRemainingArgs();
+    	job.setJarByClass(WordCountNewAPIV2.class);
+    	...
+      }
+    - For local JVM, add jar file in HADOOP_CLASSPATH
+------------------------------------------------------------------------------------------------------
+******************************************CONFIG FILES OF HADOOP**************************************
+------------------------------------------------------------------------------------------------------
+- core-default.xml
+	- Default core Hadoop properties, The file is located in the hadoop-common-2,?*.*.jar
+- core-site.xml
+	- Extended settings from core-default.xml
+- hdfs-default.xml
+	- Default HDFS properties. The file is located in the file, hadoop-hdfs-2.*.*.jar
+- hdfs-site.xml
+	- Extended settings from hdfs-default.xml
+- mapred-default.xml
+	- Default MapReduce properties. The file is located in the file, hadoop-mapreduce-client-core-2.*.*.jar
+- mapred-site.xml
+	- Extended settings from mapred-default.xml
+- yarn-default.xml
+	- Default YARN properties. The file is located in the file hadoop-yarn-common-2.*.*.jar
+- yarn-site.xml
+	- Extended settings from yarn-default.xml
+- Environment variable files, Files for java location, log locations, jvm options and other platform related settings.
+	- hadoop-env.sh	
+	- yarn-env.sh
+	- mapred-env.sh
+- Environment variables to set settings for daemons without changing environment variable files
+	NameNode HADOOP_NAMENODE_OPTS
+	DataNode HADOOP_DATANODE_OPTS
+	Secondary NameNode HADOOP_SECONDARYNAMENODE_OPTS
+	Resource Manager YARN_RESOURCEMANAGER_OPTS
+	Node Manager YARN_NODEMANAGER_OPTS
+	- Example
+		export HADOOP_NAMENODE_OPTS="-XX:+UseParallelGC ${HADOOP_NAMENODE_OPTS}"
+- Precedence of Hadoop configuration files
+	- Values of JobConf or Job are highest priority
+	- Values of *-site.xml file on client
+	- Values of *-site.xml file on slave node
+	- Values of *-default.xml which are same on all node
+- Stop overriding the settings
+	- If a property is marked as final on slave node, client or job can't modify it
+	- If a property is marked as final on client node then job can't override it.
+	<property>
+		<name>{PROPERTY_NAME}</name>
+		<value>{PROPERTY_VALUE}</value>
+		<final>true</final>
+	</property>
+- core-site.xml
+	- hadoop-tmp-dir: Base for other temporary directories. The default value is /tmp/hadoop-${user.name}. We referenced this property on a few occasions as the root directory for several properties in the hdfs-site.xml file.
+	- fs.defaultFs: Name of the default path prefix used by HDFS clients when none is provided.	configure it to hdfs://localhost:9000 for the pseudo-cluster mode. This property specifies the name and port for the NameNode (for example, hdfs://<NAMENODE>:9000). For local clusters, the value of this property is file:///. When the High Availability (HA) feature of HDFS is used, this property should be set to the logical HA URI.
+	- io.file.buffer-size: Size of the buffer to stream files, This should be multiple of hardware-page-size, on x86 page-size is 4096 bytes. This specifies, How much data gets buffered during read and write operations
+	- io.bytes.per.checksum: Hadoop transparently do checksum verification for on every data read. Default is checksum for every 512 bytes. It leads to additional 1% storage overhead. This should not be more than io.file.buffer-size.
+- hdfs-*.xml
+	- hdfs-default.xml and hdfs-site.xml files configure the properties of HDFS. They are config files for name namenode and secondary namenode
+	- dfs.namenode.name.dir: storage location for namenode 's fsimage file. It can be multiple directories separated by comma. All the directories will be updated. The default value is file://${hadoop.tmp.dir}/dfs/name.
+	- dfs.namenode.edits.dir: Location[s] to store edits file. By default it is same as dfs.namenode.name.dir
+	- fs.namenode.checkpoint.dir: Determines where the Secondary NameNode should store the temporary images to merge on the local/network file system accessible to the Secondary NameNode. If this is a comma-delimited list of directories, the image is replicated in all the directories for redundancy. The default value is file://${hadoop.tmp.dir}/dfs/namesecondary.
+	- dfs.namenode.checkpoint.edits.dir: Determines where the Secondary NameNode should store the edits file copied from the NameNode to merge the fsimage file copied in the folder defined by the dfs.namenode.checkpoint.dir property
+	- dfs.namenode.checkpoint.period: The number of seconds between two checkpoint. Default is 3600 ( 1 hour )
+	- dfs.blocksize: The default block size for new files, in bytes. The default is 128 MB. Note that block size is not a system-wide parameter; it can be specified on a per-file basis.
+	- dfs.replication: The default block replication. Although it can be specified per file, if not specified it is taken as the replication factor for the file. The default value is 3.
+	- dfs.namenode.handler.count: Represents the number of server threads the NameNode uses to communicate with the DataNodes. The default is 10, but the recommendation is about 10% of the number of nodes, with a minimum value of 10. If this value is too low, you might notice messages in the DataNode logs indicating that the connection was refused by the NameNode when the DataNode tried to communicate with the NameNode through heartbeat messages.
+	- dfs.datanode.du.reserved: Reserved space in bytes per volume that represents the amount of space to be reserved for non-HDFS use. The default value is 0, but it should be at least 10 GB or 25% of the total disk space, whichever is lower.
+	- dfs.hosts: This is a fully qualified path to a file name that contains a list of hosts that are permitted to connect with the NameNode. If the property is not set, all nodes are permitted to connect with the NameNode.
+	- dfs.hosts: This is a fully qualified path to a file name that contains a list of hosts that are permitted to connect with  the NameNode. If the property is not set, all nodes are permitted to connect with the NameNode. Default is all.
+
+- mapred-site.xml
+	- mapreduce.framework.name: The runtime framework for executing MapReduce jobs. Can be one of local, classic or yarn. Default is local
+	- mapred.child.java.opts: The JVM heap size for Map or Reduce tasks. The default is -Xmx200m (200 MB of heap space). The value should be less than or equal to the value specified in the mapreduce.map.memory.mb and mapreduce.reduce.memory.mb properties as these properties are used by the Application Master to negotiate resources from the Resource Manager.
+	- mapreduce.map.memory.mb: Specifies the amount of memory needs to be requested for map from scheduler. The default value is 1024 MB.
+	- mapreduce.reduce.memory.mb: Specifies the amount of memory needs to be requested for reduce from scheduler. The default value is 1024 MB.
+	- mapreduce.cluster.local.dir: Local directory in which MapReduce stores intermediate data files.
+	- mapreduce.jobtracker.handler.count: Number of server threads used by the JobTracker.Roughly 4% of the number of tasktrackers.
+	- mapreduce.job.reduce.slowstart.completedmaps: Number of map jobs to be completed before scheduling reducers, Note that, It will only get scheduled not actually started until all mappers are done. Default is 0.05, should be 0.5 or 0.8
+	- mapreduce.jobtracker.taskscheduler: The class responsible for scheduling the tasks. Default: org.apache.hadoop.mapred.JobQueueTaskScheduler, It is advised to use fair scheduler or capacity scheduler
+	- mapreduce.map.maxattempts: The maximum tries hadoop will do before giving up the map task and failing the job. Default is 4.
+	- mapreduce.reduce.maxattempts : The maximum tries hadoop will do before giving up the reduce task and failing the job. Default is 4.
+
+- yarn-site.xml
+	- Configuration file for nodemanager and resourcemanager
+	- yarn.resourcemanager.hostname: The hostname of the resource manager. Default is 0.0.0.0
+	- yarn.resourcemanager.address: The host name and port number on which the ResourceManager’s server runs. The default value is http://${yarn.resourcemanager.hostname}:8032.
+	- yarn.nodemanager.local-dirs: A comma-separated list of local directories in which the containers initiated by the Node Manager store files during the course of their execution. These files gets deleted after application execution. ${hadoop.tmp.dir}/nm-local-dir
+	- yarn.nodemanager.aux-services: A comma-separated list of auxiliary services executed by the Node Manager. NM provides a framework for extending its functionality by configuring auxiliary services. This allows per-node custom services that specific frameworks may require, and still sandbox them from the rest of the NM. These services have to be configured before NM starts.  Auxiliary services are notified when an application’s first container starts on the node, and when the application is considered to be complete.
+	- yarn.nodemanager.resource.memory-mb: The total amount of physical memory that can used by nodemanager for containers. This should be equal to total_physical_ram - operating_system_required_ram;
+	yarn.nodemanager.vmem-pmem-ratio: Ratio between virtual memory to physical memory when setting memory limits for containers. Default value is 2.1
+	- yarn.scheduler.minimum-allocation-mb: Minimum allocation for every container request at the Resource Manager, in megabytes. Memory requests lower than this are ignored, and the specified value gets allocated the minimum. The default value is 1024, which amounts to 1 GB.
+	- yarn.scheduler.maximum-allocation-mb: Maximum allocation for every container request at the Resource Manager, in megabytes. Memory requests higher than this are capped at this value. The default value is 8192, which amounts to 8 GB.
+	- yarn.scheduler.minimum-allocation-vcores: Minimum allocation for every container request at the Resource Manager, in terms of virtual CPU cores. Requests lower than this do not take effect, and the specified value gets allocated the minimum. The default value is 1.
+	- yarn.scheduler.maximum-allocation-vcores: Maximum allocation for every container request at the Resource Manager, in terms of virtual CPU cores. Requests higher than this do not take effect and get capped to this value. The default value is 32.
+- HDFS health check
+	- hdfs fsck /
+		- This command checks complete hdfs filesystem and report corrupted blocks along with other health statistics
+	- hdfs fsck / -files
+		- Gets the report for all the files
+	-  hdfs fsck / -files  -locations
+		- Lists all the files along with the locations on the disk
+	- hdfs fsck / -files  -blocks
+		- Prints block level report for all the files
+	- hdfs dfsadmin -report
+		- Provides namdenode and datanode health and storage details
+- HDFS safemode
+	- HDFS goes in to safemode when namdenode starts and perform startup operations like
+		1. Merge fsimage and edits.log file
+		2. get block information from namenodes
+	- Till 2nd step is over, HDFS stays in safemode, in safemode read can be done but modification to HDFS can't be done.
+	- hdfs dfsadmin –safemode action # To enter and leave safemode on demand
+		- here action can be
+			- enter - Starts safemode
+			- leave - Stops safemode
+			- get - Informs the current safemode status of HDFS
+			- wait - Waits till HDFS comes out from safemode.
+- Balancer for cluster
+	start-balancer.sh –threshold utilization-threshold% #Here threshold is percentage of disk use
+	stop-balancer.sh.
+	dfs.datanode.balance.bandwidthPerSec #File:hdfs-site.xml # default value is 1 MB/sec
+- Distributed copy
+	- hadoop distcp is for intercluster copy, Uses mapreduce to effect its distribution, error handling and recovery, and reporting. It expands a list of files and directories into input to map tasks, each of which will copy a partition of the files specified in the source list. S3 paths can also be specified.
+	- hadoop distcp srcdir destdir
+	- Example:
+		 bash$ hadoop distcp hdfs://nn1:8020/foo/bar hdfs://nn2:8020/bar/foo 
+- FileSystem class APIs to retrive FileSystem object according to configuration and URI
+	public static FileSystem get(Configuration conf) throws IOException
+		- Configuration encapsulates client or server's configuration and returns FileSystem based on it.
+	public static FileSystem get(URI uri, Configuration conf) throws IOException
+		- Configuration encapsulates client or server's configuration and returns FileSystem based conf and scheme. 
+	public static FileSystem get(URI uri, Configuration conf, String user)
+		- Configuration encapsulates client or server's configuration and returns FileSystem based conf,scheme and security
+	public static LocalFileSystem getLocal(Configuration conf) throws IOException
+		- 
+throws IOException
+FS Access FROM Hadoop
+	- Hadoop supports various filesystems for access using abstract class org.apache.hadoop.fs.FileSystem
+	- Below are the implementations of the abstract class org.apache.hadoop.fs.FileSystem
+		- filesystem- Local , URI Scheme: file, java implementation org.apache.hadoop.fs.LocalFileSystem
+		- filesystem- HDFS , URI Scheme: hdfs, java implementation org.apache.hadoop.hdfs.DistributedFileSystem
+		- filesystem- VIEW , URI Scheme: viewfs, java implementation org.apache.hadoop.viewfs.ViewFileSystem
+		- filesystem- har , URI Scheme: har, java implementation org.apache.hadoop.fs.HarFileSystem
+		- filesystem- s3 , URI Scheme: s3a, java implementation org.apache.hadoop.fs.s3a.S3AFileSystem
+		- filesystem- azure , URI Scheme: wasb, java implementation org.apache.hadoop.fs.azure.NativeAzureFileSystem
+		- filesystem- swift , URI Scheme: swift, java implementation org.apache.hadoop.fs.swift.snative.SwiftNativeFileSystem
+	- Hadoop picks the right class from URI scheme, for example to access local file system, use
+		- hadoop fs -ls file:///home/sunny/
+	- If URI does not provide any scheme for filesystem then hadoop uses default filesystem from the property of fs.defaultFS
+	- HDFS daemons uses this property to determine the host and port for the HDFS namenode.
+	- It is important to use fs.FileSystem class and not use the specialized classes directly, It gives flexibility in testing. Where code can be tested with local filesystem quickly.
+Integrity in HDFS
+	- Client calculates the checksum and then sends it to datanodes before the write, the last node in write-schedule checks the checksum and stores it if it is same otherwise informs client about it by raising IOException subclass.
+	- Client verifies calculates checksum and verifies it with the checksum stored in HDFS. If it does not match, client informs namenode about corruption. Namenode deletes the block on the node, replicate the block on some another node from another machine. 
+	- use -ignoreCrc option using command line to ignore checksum, useful to view corrupt file
+	- call setVerifyChecksum(false) method on FileSystem before using the open() method to read a file without checksum verification.
+Compression
+	- In mapreduce, to compress the output
+		FileOutputFormat.setCompressOutput(job, true);
+		FileOutputFormat.setOutputCompressorClass(job, GzipCodec.class);
+	- If output is sequencefile then 
+		- set property mapreduce.output.fileoutputformat.compress.type to either 
+			- "None" for No compression
+			- "RECORD" for record level compression (Default)
+			- "BLOCK" for block level compression
+			Choose block for better compression
+		- set mapreduce.output.fileoutputformat.compress to true to enable the compression default is false.
+		- set compression codec in mapreduce.output.fileoutputformat.compress.codec, default is org.apache.hadoop.io.compress.DefaultCodec
+	- Even if it is required to store output in uncompressed format. It is important to compress intermediate map-output. By compression it we can performance boost because of less disk write time and less network transfer time. Below property should be used to enable it
+		- mapreduce.map.output.compress defaults to false, set it to true to enable compression
+		- mapreduce.map.output.compress.codec defaults to org.apache.hadoop.io.compress.DefaultCodec, set it to the desired compression codec.
+		- Use below code to do it
+			Configuration conf = new Configuration();
+			conf.setBoolean(Job.MAP_OUTPUT_COMPRESS, true);
+			conf.setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, GzipCodec.class,
+			CompressionCodec.class);
+			Job job = new Job(conf);
+Serialization
+	- Two usages of Serialization
+		- RPC
+		- Persistance of results to disk
+	- RPC protocol serialization requirements
+		- Compact
+			- lesser the bandwidth
+		- Fast
+			- least amount of time for compression and decompression
+		- Extensible
+			- Support for new versions
+		- Interoperable
+			- Different languages
+	- Persistance
+		- In persistance also all above requirements are there plus care need to be taken so that data can be read over years which in the case of RPC is just seconds
+		- Writable interface, Used by map-reduce as keys and values
+			- Interface code
+				public interface Writable {
+					void write(DataOutput out) throws IOException;
+					void readFields(DataInput in) throws IOException;
+				}
+		- WritableComparable interface
+			- Interface code
+				public interface Comparable<T> {
+					// Returns 0 if same, -1 if less than o, 1 if greater than o
+					public int compareTo(T o);
+				}
+			- This interface gets used in sorting. To optimize process from three steps of creation->deserialization->comparision, Hadoop provides interface RawComparator
+				- Interface code
+						package org.apache.hadoop.io;
+						import java.util.Comparator;
+						public interface RawComparator<T> extends Comparator<T> {
+							public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2);
+						}
+				- This interface permits comparing objects without actually creating them. For example, the comparator for IntWritable s implements the raw compare() method by reading an integer from each of the byte arrays b1 and b2 and comparing them directly from the given start positions ( s1 and s2 ) and lengths ( l1 and l2 ).
+				- WritableComparator is a general purpose implementation of RawComparator, It provides implementation of compare method of RawComparator where it reuse the comparator objects, does not create them fresh everytime, just calls readFields on them using DataInputBuffer created using bytes.After readFields it invokes compareTo method.
+
+					package org.apache.hadoop.io;
+					public class WritableComparator implements RawComparator, Configurable {
+
+						public int compare(byte[] b1, int start1, int length1, byte[] b2, int start2, int length2) {
+						    try {
+						      buffer.reset(b1, start1, length1);                   // parse key1
+						      key1.readFields(buffer);
+						      
+						      buffer.reset(b2, start2, length2);                   // parse key2
+						      key2.readFields(buffer);
+						      
+						    } catch (IOException e) {
+						      throw new RuntimeException(e);
+						    }				    
+						    return compare(key1, key2);                   // compare them
+						}
+
+						public int compare(WritableComparable a, WritableComparable b) {
+    						return a.compareTo(b);
+  						}
+
+  						/** Parse a float from a byte array. */
+  						public static float readFloat(byte[] bytes, int start) {
+    						return Float.intBitsToFloat(readInt(bytes, start));
+  						}
+
+						/** Parse a long from a byte array. */
+						public static long readLong(byte[] bytes, int start) {
+						return ((long)(readInt(bytes, start)) << 32) +
+						  (readInt(bytes, start+4) & 0xFFFFFFFFL);
+						}
+						// Many other helper methods to read from byte[]
+					}
+		- ObjectWritable is a general-purpose wrapper for the following: Java primitives, String , enum , Writable , null , or arrays of any of these types. It is used in Hadoop RPC to marshal and unmarshal method arguments and return types.
+		- ObjectWritable is useful when a field can be of more than one type. For example, if the values in a SequenceFile have multiple types, you can declare the value type as an ObjectWritable and wrap each type in an ObjectWritable . Being a general-purpose mechanism, it wasted a fair amount of space because it writes the classname of the wrapped type every time it is serialized. In cases where the number of types is small and known ahead of time, this can be improved by having a static array of types and using the index into the array as the serialized reference to the type. This is the approach that GenericWritable takes, and you have to subclass it to specify which types to support. 
+- Types of log files of Hadoop
+	- System daemon logs
+	- HDFS audit logs
+	- MapReduce job history logs
+	- MapReduce job history logs
+		- set yarn.log-aggregation-enable to true to get the logs on HDFS
+		- set mapreduce.map.log.level or mapreduce.reduce.log.level to DEBUG to get debug messages, By default it is Info
+			- Example
+				hadoop jar hadoop-examples.jar LoggingDriver -conf conf/hadoop-cluster.xml -D mapreduce.map.log.level=DEBUG input/ncdc/sample.txt logging-out
+		- By default, logs are deleted after a minimum of three hours (set this using the yarn.nodemanager.log.retain-seconds property (this is ignored if log aggregation is enabled). 
+		- You can also set a cap on the maximum size of each logfile using the mapreduce.task.userlog.limit.kb property, which is 0 by default, meaning there is no cap.
+- Profiling MapReduce
+	Set property mapreduce.task.profile to true, 
+		- % hadoop jar hadoop-examples.jar v4.MaxTemperatureDriver \
+			-conf conf/hadoop-cluster.xml \
+			-D mapreduce.task.profile=true \
+			input/ncdc/all max-temp
+		- It uses HPROF tool to profile program’s CPU and heap usage
+		- It doesn’t usually make sense to profile all tasks in the job, so by default only those with IDs 0, 1, and 2 are profiled (for both maps and reduces). You can change this by setting mapreduce.task.profile.maps and mapreduce.task.profile.reduces to specify the range of task IDs to profile.
+		- The profile output for each task is saved with the task logs in the userlogs subdirectory of the node manager’s local log directory (alongside the syslog, stdout, and stderr files
+		
+======================================================================================================
+Create hive tables
+
+	CREATE EXTERNAL TABLE vendors( vendor_id INT , vendor_name STRING , vendor_address1 STRING , vendor_address2 STRING , vendor_city STRING , vendor_state STRING , vendor_zip_code STRING , vendor_phone STRING , vendor_contact_last_name STRING , vendor_contact_first_name STRING , default_terms_id INT , default_account_number INT)  ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t'  LOCATION '/user/sunny/ap/vendors';
+
+	CREATE EXTERNAL TABLE invoices (invoice_id INT , vendor_id INT , invoice_number STRING , invoice_date STRING , invoice_total STRING , payment_total STRING , credit_total STRING , terms_id INT , invoice_due_date STRING , payment_date STRING ) ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t'  LOCATION '/user/sunny/ap/invoices';
+
+SELECT  vendor_name, sum(invoice_total), count(invoice_id) /
+FROM vendors join invoices ON (vendors.vendor_id = invoices.vendor_id) /
+GROUP BY vendor_name;
+
+SELECT  vendor_id, sum(invoice_total), count(invoice_id) from invoices GROUP BY vendor_id;
+
+
+Install Hadoop through Cloudera Manager
+ 	- http://archive.cloudera.com/cm5/installer/latest/cloudera-manager-installer.bin
+	- Cloudera Manager URL: http://127.0.1.1:7180/cmf/express-wizard/wizard#step=installStep
+	- Installation page can be recovered from here
+		http://127.0.1.1:7180/cmf/express-wizard/wizard#step=parcelInstallStep
+	cd ~/Downloads
+	wget -c https://downloads.cloudera.com/demo_vm/vmware/cloudera-quickstart-vm-5.2.0-0-vmware.7z
+- org.apache.hadoop.fs.FileSystem
+---------------Linux Help---------------
+sudo without password, here sunny is the username
+sunny ALL=(ALL) NOPASSWD: ALL
+netstat -l 
+find -type f -name "sum.java" #Use -iname to ignore case, Use * for wildcard match
+sha1sum <file-name> to find the sha1 checksum of the file.
+python -m SimpleHTTPServer
+sudo dpkg-reconfigure tzdata #To set time
+sudo mount -t ext4 -o rw,remount -force /dev/sdb ~/tempdisk/
+---------------------------------------------------------------------------------------------------------
+ hdfs namenode -format 		#First time only
+ start-dfs.sh 				#Starts the HDFS file system, Now it is possible to browse it from http://localhost:50070/
+ start-yarn.sh 				#Starts YARN, Use it only if it is setup using YARN.
+ 							#Execute hadoop jobs, Now hadoop is ready
+ stop-yarn.sh 				#Stop YARN, Use it only if it is setup using YARN.
+ stop-dfs.sh  				#Stop HDFS daemon
+=============================================================================================================
+Questions
+	- If there are multiple text files in input then hadoop converts it to line-no and line-text. 
+		- What to do if we need one file in map function?
+		- What to do if we have binary files, How input will get distributed then?
+python -c "import socket; print socket.getfqdn(); print socket.gethostbyname(socket.getfqdn())"
+python -c "import socket; print socket.getfqdn(); print socket.gethostbyname(\"localhost\")"
+python -c "import socket; print socket.getfqdn(); print socket.gethostbyname(\"hadoop-m.c.sunny-hadoop-trial.internal\")"
+python -c "import socket; print socket.getfqdn(); print socket.gethostbyname(\"hadoop-m\")"
+
+ SELECT  invoices.vendor_id, vendor_name, sum(invoice_total), count(vendor_name) from invoices,vendors where invoices.vendor_id = vendors.vendor_id GROUP BY vendor_name ORDER BY invoices.vendor_id;
+

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<playlist xmlns="http://xspf.org/ns/0/" xmlns:vlc="http://www.videolan.org/vlc/playlist/ns/0/" version="1">
+	<title>Playlist</title>
+	<trackList>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-1/StatsLearning%20Lect1_2a%20111213%20v2-2wLfFB_6SKI.mp4</location>
+			<duration>1098373</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>0</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-1/StatsLearning%20Lect1_2b%20111213%20v2-LvaTokhYnDw.mp4</location>
+			<duration>732681</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>1</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-2/StatsLearning%20Lect3%204a%20110613-WjyuiK5taS8.mp4</location>
+			<duration>701868</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>2</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-2/StatsLearning%20Lect3%204b%20110613-UvxHOkYQl8g.mp4</location>
+			<duration>700940</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>3</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-2/StatsLearning%20Lect3%204c%20110613-VusKAosxxyk.mp4</location>
+			<duration>604786</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>4</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-2/StatsLearning%20Lect3%204d%20110613-vVj2itVNku4.mp4</location>
+			<duration>937621</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>5</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-2/Lecture%205%20Trevor%20Rstudio%20v2%20111113-jwBgGS_4RQA.mp4</location>
+			<duration>852055</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>6</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-3/StatsLearning%20Lect5a%20112113-PsE9UqoWtS4.mp4</location>
+			<duration>781768</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>7</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-3/StatsLearning%20Lect5b%20110613-J6AdoiNUyWI.mp4</location>
+			<duration>504778</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>8</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-3/StatsLearning%20Lect5c%20110613-1hbCJyM9ccs.mp4</location>
+			<duration>937273</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>9</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-3/StatsLearning%20Lect5d%20111713-3T6RXmIHbJ4.mp4</location>
+			<duration>891878</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>10</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-3/StatsLearning%20Lect5e%20111713-IFzVxLv0TKQ.mp4</location>
+			<duration>856466</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>11</vlc:id>
+			</extension>
+		</track>
+		<track>
+			<location>file:///home/sunny/videoTutorials/statsLearning/Ch-3/lecture%207%20r%20regression%20v2%20111113-5ONFqIk3RFg.mp4</location>
+			<duration>1330108</duration>
+			<extension application="http://www.videolan.org/vlc/playlist/0">
+				<vlc:id>12</vlc:id>
+			</extension>
+		</track>
+	</trackList>
+	<extension application="http://www.videolan.org/vlc/playlist/0">
+			<vlc:item tid="0"/>
+			<vlc:item tid="1"/>
+			<vlc:item tid="2"/>
+			<vlc:item tid="3"/>
+			<vlc:item tid="4"/>
+			<vlc:item tid="5"/>
+			<vlc:item tid="6"/>
+			<vlc:item tid="7"/>
+			<vlc:item tid="8"/>
+			<vlc:item tid="9"/>
+			<vlc:item tid="10"/>
+			<vlc:item tid="11"/>
+			<vlc:item tid="12"/>
+	</extension>
+</playlist>
