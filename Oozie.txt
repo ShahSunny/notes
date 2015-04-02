@@ -1,0 +1,982 @@
+- Oozie is a server based Workflow Engine specialized in running workflow jobs with actions that run Hadoop Map/Reduce and Pig jobs.
+- Oozie is a Java Web-Application that runs in a Java servlet-container.
+- For the purposes of Oozie, a workflow is a collection of actions (i.e. Hadoop Map/Reduce jobs, Pig jobs) arranged in a control dependency DAG (Direct Acyclic Graph). "control dependency" from one action to another means that the second action can't run until the first action has completed.
+- Oozie workflows definitions are written in hPDL (a XML Process Definition Language similar to JBOSS JBPM jPDL).
+- Oozie workflows contain control flow nodes and action nodes.
+- Control flow nodes define the beginning and the end of a workflow ( start , end and fail nodes) and provide a mechanism to control the workflow execution path ( decision , fork and join nodes).
+- Action nodes are the mechanism by which a workflow triggers the execution of a computation/processing task. Oozie provides support for different types of actions: Hadoop map-reduce, Hadoop file system, Pig, SSH, HTTP, eMail and Oozie sub-workflow. Oozie can be extended to support additional type of actions.
+- hPdl example
+	<workflow-app name='wordcount-wf' xmlns="uri:oozie:workflow:0.1">
+	    <start to='wordcount'/>
+	    <action name='wordcount'>
+	        <map-reduce>
+	            <job-tracker>${jobTracker}</job-tracker>
+	            <name-node>${nameNode}</name-node>
+	            <configuration>
+	                <property>
+	                    <name>mapred.mapper.class</name>
+	                    <value>org.myorg.WordCount.Map</value>
+	                </property>
+	                <property>
+	                    <name>mapred.reducer.class</name>
+	                    <value>org.myorg.WordCount.Reduce</value>
+	                </property>
+	                <property>
+	                    <name>mapred.input.dir</name>
+	                    <value>${inputDir}</value>
+	                </property>
+	                <property>
+	                    <name>mapred.output.dir</name>
+	                    <value>${outputDir}</value>
+	                </property>
+	            </configuration>
+	        </map-reduce>
+	        <ok to='end'/>
+	        <error to='end'/>
+	    </action>
+	    <kill name='kill'>
+	        <message>Something went wrong: ${wf:errorCode('wordcount')}</message>
+	    </kill/>
+	    <end name='end'/>
+	</workflow-app>
+- Oozie jobs running on demand are called Workflow jobs. Oozie jobs running periodically on a regular basis are called Coordinator jobs. There is a third type of Oozie job called Bundle jobs; a Bundle job is a collection of Coordinator jobs managed as a single job.
+- Run oozie command
+	$ export OOZIE_URL=http://localhost:11000/oozie
+	$ oozie job -run -config target/example/job.properties
+	job: 0000006-130606115200591-oozie-joe-W
+- Check status of job
+	oozie job -info 0000006-130606115200591-oozie-joe-W
+- Version of Oozie
+	1.x: Support for Workflow jobs.
+	2.x: Support for Coordinator jobs.
+	3.x: Support for Bundle jobs.
+	4.x: Hive/HCatalog integration [17], Oozie server High Availability and support for Service Level Agreement (SLA) [18] notifications.
+- Oozie applications are analogous to Unix executables, and Oozie jobs are analogous to Unix processes.Oozie has applications, and one execution of an application is called a job.
+- Oozie Workflows
+	- An Oozie Workflow is a multi-stage Hadoop job. A Workflow is a collection of action and control nodes arranged in a control dependency Direct Acyclic Graph (DAG) [25] where each action typically is a Hadoop job, for example: a Map-Reduce job, a Pig job, a Hive job, a Sqoop [26]job, or a Hadoop DistCp job. There can also be actions that are not Hadoop jobs, for example: a Java application, a shell script, or an email notification.
+	- The order of the nodes in the workflow determines the execution order of these actions. An action does not start until the previous action in the workflow ends. Control nodes in a workflow are used to manage the execution flow of actions. The start and end control nodes define the start and end of a workflow. The fork and join control nodes allow executing actions in parallel. The decision control node is like a switch/case statement that can select a particular execution path within the workflow using information from the job itself.
+	- The order of the nodes in the workflow determines the execution order of these actions. An action does not start until the previous action in the workflow ends. Control nodes in a workflow are used to manage the execution flow of actions. The start and end control nodes define the start and end of a workflow. The fork and join control nodes allow executing actions in parallel. The decision control node is like a switch/case statement that can select a particular execution path within the workflow using information from the job itself.
+	- Because Workflows are Directed Acyclic Graphs, they don’t support loops in the flow.
+- Oozie coordinator
+	An Oozie Coordinator schedules Workflow executions based on a start-time and a frequency parameter, and it starts the Workflow when all the necessary input data becomes available. If the input data is not available, the Workflow execution is delayed until the input data becomes available. A Coordinator is defined by a start and end time, a frequency, input and output data, and a Workflow. A Coordinator runs from the start time until the end time.
+ActionExecutor
+	- here is an ActionExecutor for each type of action you can use in a Workflow. For example, there is an ActionExecutor for Map-Reduce actions, and another for Pig actions. An ActionExecutor knows how to start, kill, monitor, and gather information about the type of a Hadoop job the action handles. Modifying Oozie to add support for a new type of action in Oozie requires implementing an ActionExecutor, a Java main class, and defining the XML syntax for the action.
+More on Oozie workflow:
+	- A Workflow application is DAG that coordinates the following types of actions: Hadoop, Pig, and sub-workflows.
+	- Flow control operations within the workflow applications can be done using decision, fork and join nodes. Cycles in workflows are not supported.
+	- Actions and decisions can be parameterized with job properties, actions output (i.e. Hadoop counters) and file information (file exists, file size, etc). Formal parameters are expressed in the workflow definition as ${VAR} variables.
+	- A Workflow application is a ZIP file that contains the workflow definition (an XML file), all the necessary files to run all the actions: JAR files for Map/Reduce jobs, shells for streaming Map/Reduce jobs, native libraries, Pig scripts, and other resource files.
+	- Before running a workflow job, the corresponding workflow application must be deployed in Oozie.
+	- Deploying workflow application and running workflow jobs can be done via command line tools, a WS API and a Java API.
+	- Possible states for a workflow jobs are: PREP , RUNNING , SUSPENDED , SUCCEEDED , KILLED and FAILED.
+	- In the case of a action start failure in a workflow job, depending on the type of failure, Oozie will attempt automatic retries, it will request a manual retry or it will fail the workflow job.
+	- Oozie can make HTTP callback notifications on action start/end/failure events and workflow end/failure events.
+	- In the case of workflow job failure, the workflow job can be resubmitted skipping previously completed actions. Before doing a resubmission the workflow application could be updated with a patch to fix a problem in the workflow application code.
+	- A workflow definition is a DAG with control flow nodes (start, end, decision, fork, join, kill) or action nodes (map-reduce, pig, etc.), nodes are connected by transitions arrows.
+	- The workflow definition language is XML based and it is called hPDL (Hadoop Process Definition Language).
+	- Workflow nodes are classified in control flow nodes and action nodes:
+		- Control flow nodes: nodes that control the start and end of the workflow and workflow job execution path.
+		- Action nodes: nodes that trigger the execution of a computation/processing task.
+	- Control flow nodes
+		- Start control node
+			- The start node is the entry point for a workflow job, it indicates the first workflow node the workflow job must transition to.
+			- When a workflow is started, it automatically transitions to the node specified in the start .
+			- A workflow definition must have one start node.
+			- Syntax:
+				<workflow-app name="[WF-DEF-NAME]" xmlns="uri:oozie:workflow:0.1">
+				  ...
+				  <start to="[NODE-NAME]"/>
+				  ...
+				</workflow-app>
+				The to attribute is the name of first workflow node to execute.
+		- End control node
+			- When a workflow job reaches the end it finishes successfully (SUCCEEDED).
+			- If one or more actions started by the workflow job are executing when the end node is reached, the actions will be killed. In this scenario the workflow job is still considered as successfully run.
+			- A workflow definition must have one end node.
+			- Syntax:
+				<workflow-app name="[WF-DEF-NAME]" xmlns="uri:oozie:workflow:0.1">
+				    ...
+				    <end name="[NODE-NAME]"/>
+				    ...
+				</workflow-app>
+				The name attribute is the name of the transition to do to end the workflow job.
+		- Kill control node
+			- The kill node allows a workflow job to kill itself.
+			- When a workflow job reaches the kill it finishes in error (KILLED).
+			- If one or more actions started by the workflow job are executing when the kill node is reached, the actions will be killed.
+			- A workflow definition may have zero or more kill nodes.
+			- The name attribute in the kill node is the name of the Kill action node.
+			- The content of the message element will be logged as the kill reason for the workflow job.
+			- A kill node does not have transition elements because it ends the workflow job, as KILLED .
+			- Example
+				<workflow-app name="foo-wf" xmlns="uri:oozie:workflow:0.1">
+	    			<kill name="killBecauseNoInput">
+	        			<message>Input unavailable</message>
+	    			</kill>
+	    		</workflow-app>
+	    - Decision control node
+			- A decision node enables a workflow to make a selection on the execution path to follow.
+			- The behavior of a decision node can be seen as a switch-case statement.
+			- A decision node consists of a list of predicates-transition pairs plus a default transition. Predicates are evaluated in order or appearance until one of them evaluates to true and the corresponding transition is taken. If none of the predicates evaluates to true the default transition is taken.
+			- Predicates are JSP Expression Language (EL) expressions (refer to section 4.2 of this document) that resolve into a boolean value, true or false . For example:
+			    ${fs:fileSize('/usr/foo/myinputdir') gt 10 * GB}
+			
+			- Syntax:
+				<workflow-app name="[WF-DEF-NAME]" xmlns="uri:oozie:workflow:0.1">
+				    ...
+				    <decision name="[NODE-NAME]">
+				        <switch>
+				            <case to="[NODE_NAME]">[PREDICATE]</case>
+				            ...
+				            <case to="[NODE_NAME]">[PREDICATE]</case>
+				            <default to="[NODE_NAME]"/>
+				        </switch>
+				    </decision>
+				    ...
+				</workflow-app>
+			- The name attribute in the decision node is the name of the decision node.
+			- Each case elements contains a predicate an a transition name. The predicate ELs are evaluated in order until one returns true and the corresponding transition is taken.
+			- The default element indicates the transition to take if none of the predicates evaluates to true.
+			All decision nodes must have a default element to avoid bringing the workflow into an error state if none of the predicates evaluates to true.
+			- Example:
+				<workflow-app name="foo-wf" xmlns="uri:oozie:workflow:0.1">
+				    <decision name="mydecision">
+				        <switch>
+				            <case to="reconsolidatejob">
+				              ${fs:fileSize(secondjobOutputDir) gt 10 * GB}
+				            </case>
+				            <case to="rexpandjob">
+				              ${fs:filSize(secondjobOutputDir) lt 100 * MB}
+				            </case>
+				            <case to="recomputejob">
+				              ${ hadoop:counters('secondjob')[RECORDS][REDUCE_OUT] lt 1000000 }
+				            </case>
+				            <default to="end"/>
+				        </switch>
+				    </decision>
+				</workflow-app>
+		- Fork and Join node
+			- A fork node splits one path of execution into multiple concurrent paths of execution.
+			- A join node waits until every concurrent execution path of a previous fork node arrives to it.
+			- The fork and join nodes must be used in pairs. The join node assumes concurrent execution paths are children of the same fork node.
+			- Syntax
+				<workflow-app name="[WF-DEF-NAME]" xmlns="uri:oozie:workflow:0.1">
+	    			<fork name="[FORK-NODE-NAME]">
+				        <path start="[NODE-NAME]" />
+				        ...
+				        <path start="[NODE-NAME]" />
+				    </fork>
+				    ...
+				    <join name="[JOIN-NODE-NAME]" to="[NODE-NAME]" />
+				    ...
+				</workflow-app>
+				- The name attribute in the fork node is the name of the workflow fork node. The start attribute in the path elements in the fork node indicate the name of the workflow node that will be part of the concurrent execution paths.
+				- The name attribute in the join node is the name of the workflow join node. The to attribute in the join node indicates the name of the workflow node that will executed after all concurrent execution paths of the corresponding fork arrive to the join node.
+			- Example
+				<workflow-app name="sample-wf" xmlns="uri:oozie:workflow:0.1">
+				    ...
+				    <fork name="forking">
+				        <path start="firstparalleljob"/>
+				        <path start="secondparalleljob"/>
+				    </fork>
+				    <action name="firstparallejob">
+				        <map-reduce>
+				            <job-tracker>foo:8021</job-tracker>
+				            <name-node>bar:8020</name-node>
+				            <job-xml>job1.xml</job-xml>
+				        </map-reduce>
+				        <ok to="joining"/>
+				        <error to="kill"/>
+				    </action>
+				    <action name="secondparalleljob">
+				        <map-reduce>
+				            <job-tracker>foo:8021</job-tracker>
+				            <name-node>bar:8020</name-node>
+				            <job-xml>job2.xml</job-xml>
+				        </map-reduce>
+				        <ok to="joining"/>
+				        <error to="kill"/>
+				    </action>
+				    <join name="joining" to="nextaction"/>
+				    ...
+				</workflow-app>
+	- Action node result
+		- Two states, 
+			- Ok
+			- Error
+		- If a computation/processing task -triggered by a workflow- completes successfully, it transitions to ok .
+		- If a computation/processing task -triggered by a workflow- fails to complete successfully, its transitions to error .
+		- If a computation/processing task exits in error, there computation/processing task must provide error-code and error-message information to Oozie. This information can be used from decision nodes to implement a fine grain error handling at workflow application level.
+		- Each action type must clearly define all the error codes it can produce.
+	- Action Recovery
+		- Oozie provides recovery capabilities when starting or ending actions.
+		- Once an action starts successfully Oozie will not retry starting the action if the action fails during its execution. The assumption is that the external system (i.e. Hadoop) executing the action has enough resilience to recovery jobs once it has started (i.e. Hadoop task retries).
+		- Depending on the nature of the failure, Oozie will have different recovery strategies.
+		- If the failure is of transient nature, Oozie will perform retries after a pre-defined time interval. The number of retries and timer interval for a type of action must be pre-configured at Oozie level. Workflow jobs can override such configuration.
+		- Examples of a transient failures are network problems or a remote system temporary unavailable.
+		- If the failure is of non-transient nature, Oozie will suspend the workflow job until an manual or programmatic intervention resumes the workflow job and the action start or end is retried. It is the responsibility of an administrator or an external managing system to perform any necessary cleanup before resuming the workflow job.
+		- If the failure is an error and a retry will not resolve the problem, Oozie will perform the error transition for the action.
+	- Map-Reduce Action
+		- The map-reduce action starts a Hadoop map/reduce job from a workflow. Hadoop jobs can be Java Map/Reduce jobs or streaming jobs.
+		- A map-reduce action can be configured to perform file system cleanup and directory creation before starting the map reduce job. This capability enables Oozie to retry a Hadoop job in the situation of a transient failure (Hadoop checks the non-existence of the job output directory and then creates it when the Hadoop job is starting, thus a retry without cleanup of the job output directory would fail).
+		- The workflow job will wait until the Hadoop map/reduce job completes before continuing to the next action in the workflow execution path.
+		- The counters of the Hadoop job and job exit status (=FAILED=, KILLED or SUCCEEDED ) must be available to the workflow job after the Hadoop jobs ends. This information can be used from within decision nodes and other actions configurations.
+		- The map-reduce action has to be configured with all the necessary Hadoop JobConf properties to run the Hadoop map/reduce job.
+		- Hadoop JobConf properties can be specified as part of
+			- the config-default.xml or
+			- JobConf XML file bundled with the workflow application or
+			- tag in workflow definition or
+			- Inline map-reduce action configuration.
+		- The configuration properties are loaded in the following above order i.e. streaming , job-xml and configuration , and the precedence order is later values override earlier values.
+		- Streaming and inline property values can be parameterized (templatized) using EL expressions.
+		- The Hadoop mapred.job.tracker and fs.default.name properties must not be present in the job-xml and inline configuration.
+		- Files specified with the file element, will be symbolic links in the home directory of the task.
+		- Syntax
+			<workflow-app name="[WF-DEF-NAME]" xmlns="uri:oozie:workflow:0.1">
+			    ...
+			    <action name="[NODE-NAME]">
+			        <map-reduce>
+			            <job-tracker>[JOB-TRACKER]</job-tracker>
+			            <name-node>[NAME-NODE]</name-node>
+			            <prepare>
+			                <delete path="[PATH]"/>
+			                ...
+			                <mkdir path="[PATH]"/>
+			                ...
+			            </prepare>
+			            <streaming>
+			                <mapper>[MAPPER-PROCESS]</mapper>
+			                <reducer>[REDUCER-PROCESS]</reducer>
+			                <record-reader>[RECORD-READER-CLASS]</record-reader>
+			                <record-reader-mapping>[NAME=VALUE]</record-reader-mapping>
+			                ...
+			                <env>[NAME=VALUE]</env>
+			                ...
+			            </streaming>
+						<!-- Either streaming or pipes can be specified for an action, not both -->
+			            <pipes>
+			                <map>[MAPPER]</map>
+			                <reduce>[REDUCER]</reducer>
+			                <inputformat>[INPUTFORMAT]</inputformat>
+			                <partitioner>[PARTITIONER]</partitioner>
+			                <writer>[OUTPUTFORMAT]</writer>
+			                <program>[EXECUTABLE]</program>
+			            </pipes>
+			            <job-xml>[JOB-XML-FILE]</job-xml>
+			            <configuration>
+			                <property>
+			                    <name>[PROPERTY-NAME]</name>
+			                    <value>[PROPERTY-VALUE]</value>
+			                </property>
+			                ...
+			            </configuration>
+			            <file>[FILE-PATH]</file>
+			            ...
+			            <archive>[FILE-PATH]</archive>
+			            ...
+			        </map-reduce>        <ok to="[NODE-NAME]"/>
+			        <error to="[NODE-NAME]"/>
+			    </action>
+			    ...
+			</workflow-app>
+		- Example
+			<workflow-app name="foo-wf" xmlns="uri:oozie:workflow:0.1">
+			    ...
+			    <action name="myfirstHadoopJob">
+			        <map-reduce>
+			            <job-tracker>foo:8021</job-tracker>
+			            <name-node>bar:8020</name-node>
+			            <prepare>
+			                <delete path="hdfs://foo:8020/usr/tucu/output-data"/>
+			            </prepare>
+			            <job-xml>/myfirstjob.xml</job-xml>
+			            <configuration>
+			                <property>
+			                    <name>mapred.input.dir</name>
+			                    <value>/usr/tucu/input-data</value>
+			                </property>
+			                <property>
+			                    <name>mapred.output.dir</name>
+			                    <value>/usr/tucu/input-data</value>
+			                </property>
+			                <property>
+			                    <name>mapred.reduce.tasks</name>
+			                    <value>${firstJobReducers}</value>
+			                </property>
+			                <property>
+			                    <name>oozie.action.external.stats.write</name>
+			                    <value>true</value>
+			                </property>
+			            </configuration>
+			        </map-reduce>
+			        <ok to="myNextAction"/>
+			        <error to="errorCleanup"/>
+			    </action>
+			    ...
+			</workflow-app>
+	- Pig Action
+		- The pig action starts a Pig job.
+		- The workflow job will wait until the pig job completes before continuing to the next action.
+		- The pig action has to be configured with the job-tracker, name-node, pig script and the necessary parameters and configuration to run the Pig job.
+		- A pig action can be configured to perform HDFS files/directories cleanup or HCatalog partitions cleanup before starting the Pig job. This capability enables Oozie to retry a Pig job in the situation of a transient failure (Pig creates temporary directories for intermediate data, thus a retry without cleanup would fail).
+		- Syntax:
+			<workflow-app name="[WF-DEF-NAME]" xmlns="uri:oozie:workflow:0.2">
+			    ...
+			    <action name="[NODE-NAME]">
+			        <pig>
+			            <job-tracker>[JOB-TRACKER]</job-tracker>
+			            <name-node>[NAME-NODE]</name-node>
+			            <prepare>
+			               <delete path="[PATH]"/>
+			               ...
+			               <mkdir path="[PATH]"/>
+			               ...
+			            </prepare>
+			            <job-xml>[JOB-XML-FILE]</job-xml>
+			            <configuration>
+			                <property>
+			                    <name>[PROPERTY-NAME]</name>
+			                    <value>[PROPERTY-VALUE]</value>
+			                </property>
+			                ...
+			            </configuration>
+			            <script>[PIG-SCRIPT]</script>
+			            <param>[PARAM-VALUE]</param>
+			                ...
+			            <param>[PARAM-VALUE]</param>
+			            <argument>[ARGUMENT-VALUE]</argument>
+			                ...
+			            <argument>[ARGUMENT-VALUE]</argument>
+			            <file>[FILE-PATH]</file>
+			            ...
+			            <archive>[FILE-PATH]</archive>
+			            ...
+			        </pig>
+			        <ok to="[NODE-NAME]"/>
+			        <error to="[NODE-NAME]"/>
+			    </action>
+			    ...
+			</workflow-app>
+	- HDFS action
+		- The fs action allows to manipulate files and directories in HDFS from a workflow application. The supported commands are move , delete , mkdir , chmod , touchz and chgrp .
+		- The FS commands are executed synchronously from within the FS action, the workflow job will wait until the specified file commands are completed before continuing to the next action.
+		- Path names specified in the fs action can be parameterized (templatized) using EL expressions. Path name should be specified as a absolute path. In case of move , delete , chmod and chgrp commands, a glob pattern can also be specified instead of an absolute path. For move , glob pattern can only be specified for source path and not the target.
+		- Sepc
+			<workflow-app name="[WF-DEF-NAME]" xmlns="uri:oozie:workflow:0.5">
+			    ...
+			    <action name="[NODE-NAME]">
+			        <fs>
+			            <delete path='[PATH]'/>
+			            ...
+			            <mkdir path='[PATH]'/>
+			            ...
+			            <move source='[SOURCE-PATH]' target='[TARGET-PATH]'/>
+			            ...
+			            <chmod path='[PATH]' permissions='[PERMISSIONS]' dir-files='false' />
+			            ...
+			            <touchz path='[PATH]' />
+			            ...
+			            <chgrp path='[PATH]' group='[GROUP]' dir-files='false' />
+			        </fs>
+			        <ok to="[NODE-NAME]"/>
+			        <error to="[NODE-NAME]"/>
+			    </action>
+			    ...
+			</workflow-app>
+		- Ssh Action
+			- Can be used to execute a command in another machine via ssh
+			- SSH actions are deprecated in Oozie schema 0.1, and removed in Oozie schema 0.2
+			- Limitations on output
+				- The format of the output must be a valid Java Properties file.
+				- The size of the output must not exceed 2KB.
+		- Sub-Workflow action
+			- The sub-workflow action runs a child workflow job, the child workflow job can be in the same Oozie system or in another Oozie system.
+			- The parent workflow job will wait until the child workflow job has completed.
+			- Syntax:
+				<workflow-app name="[WF-DEF-NAME]" xmlns="uri:oozie:workflow:0.1">
+				    ...
+				    <action name="[NODE-NAME]">
+				        <sub-workflow>
+				            <app-path>[WF-APPLICATION-PATH]</app-path>
+				            <propagate-configuration/>
+				            <configuration>
+				                <property>
+				                    <name>[PROPERTY-NAME]</name>
+				                    <value>[PROPERTY-VALUE]</value>
+				                </property>
+				                ...
+				            </configuration>
+				        </sub-workflow>
+				        <ok to="[NODE-NAME]"/>
+				        <error to="[NODE-NAME]"/>
+				    </action>
+				    ...
+				</workflow-app>
+			- The child workflow job runs in the same Oozie system instance where the parent workflow job is running.
+			- The app-path element specifies the path to the workflow application of the child workflow job.
+			- The propagate-configuration flag, if present, indicates that the workflow job configuration should be propagated to the child workflow.
+			- The subworkflow can inherit the lib jars from the parent workflow by setting oozie.subworkflow.classpath.inheritance to true in oozie-site.xml or on a per-job basis by setting oozie.wf.subworkflow.classpath.inheritance to true in a job.properties file. By default, oozie.wf.subworkflow.classpath.inheritance is set to false.
+			- To prevent errant workflows from starting infinitely recursive subworkflows, oozie.action.subworkflow.max.depth can be specified in oozie-site.xml to set the maximum depth of subworkflow calls. For example, if set to 3, then a workflow can start subwf1, which can start subwf2, which can start subwf3; but if subwf3 tries to start subwf4, then the action will fail. The default is 50.
+		- Java Action
+			- The java action will execute the public static void main(String[] args) method of the specified main Java class.
+			- Java applications are executed in the Hadoop cluster as map-reduce job with a single Mapper task.
+			- The java action has to be configured with the job-tracker, name-node, main Java class, JVM options and arguments.
+			- To indicate an ok action transition, the main Java class must complete gracefully the main method invocation.
+			- To indicate an error action transition, the main Java class must throw an exception.
+			- The main Java class must not call System.exit(int n) as this will make the java action to do an error transition regardless of the used exit code.
+			- A java action can be configured to perform HDFS files/directories cleanup or HCatalog partitions cleanup before starting the Java application. This capability enables Oozie to retry a Java application in the situation of a transient or non-transient failure (This can be used to cleanup any temporary data which may have been created by the Java application in case of failure).
+			- As with map-reduce and pig actions, it is possible to add files and archives to be available to the Java application. 
+			- Syntax
+				<workflow-app name="[WF-DEF-NAME]" xmlns="uri:oozie:workflow:0.1">
+				    ...
+				    <action name="[NODE-NAME]">
+				        <java>
+				            <job-tracker>[JOB-TRACKER]</job-tracker>
+				            <name-node>[NAME-NODE]</name-node>
+				            <prepare>
+				               <delete path="[PATH]"/>
+				               ...
+				               <mkdir path="[PATH]"/>
+				               ...
+				            </prepare>
+				            <job-xml>[JOB-XML]</job-xml>
+				            <configuration>
+				                <property>
+				                    <name>[PROPERTY-NAME]</name>
+				                    <value>[PROPERTY-VALUE]</value>
+				                </property>
+				                ...
+				            </configuration>
+				            <main-class>[MAIN-CLASS]</main-class>
+							<java-opts>[JAVA-STARTUP-OPTS]</java-opts>
+							<arg>ARGUMENT</arg>
+				            ...
+				            <file>[FILE-PATH]</file>
+				            ...
+				            <archive>[FILE-PATH]</archive>
+				            ...
+				            <capture-output />
+				        </java>
+				        <ok to="[NODE-NAME]"/>
+				        <error to="[NODE-NAME]"/>
+				    </action>
+				    ...
+				</workflow-app>
+			- The java-opts and java-opt elements, if present, contains the command line parameters which are to be used to start the JVM that will execute the Java application. Using this element is equivalent to using the mapred.child.java.opts or mapreduce.map.java.opts configuration properties, with the advantage that Oozie will append to these properties instead of simply setting them (e.g. if you have one of these properties specified in mapred-site.xml, setting it again in the configuration element will override it, but using java-opts or java-opt will instead append to it, preserving the original value). You can have either one java-opts , multiple java-opt , or neither; you cannot use both at the same time. In any case, Oozie will set both mapred.child.java.opts and mapreduce.map.java.opts to the same value based on combining them. In other words, after Oozie is finished:
+			- Syntax
+				mapred.child.java.opts  <-- "<mapred.child.java.opts> <mapreduce.map.java.opts> <java-opt...|java-opts>"
+				mapreduce.map.java.opts <-- "<mapred.child.java.opts> <mapreduce.map.java.opts> <java-opt...|java-opts>"
+	- Workflow necessary properties
+		When submitting a workflow job for the workflow definition above, 3 workflow job properties must be specified:
+			jobTracker:
+			inputDir:
+			outputDir:
+			If the above 3 properties are not specified, the job will fail.	
+	- Parameters available in 0.4 version
+		<workflow-app name='hello-wf' xmlns="uri:oozie:workflow:0.4">
+		    <parameters>
+		        <property>
+		            <name>inputDir</name>
+		        </property>
+		        <property>
+		            <name>outputDir</name>
+		            <value>out-dir</value>
+		        </property>
+		    </parameters>
+		    ...
+		    <action name='firstjob'>
+		        <map-reduce>
+		            <job-tracker>${jobTracker}</job-tracker>
+		            <name-node>${nameNode}</name-node>
+		            <configuration>
+		                <property>
+		                    <name>mapred.mapper.class</name>
+		                    <value>com.foo.FirstMapper</value>
+		                </property>
+		                <property>
+		                    <name>mapred.reducer.class</name>
+		                    <value>com.foo.FirstReducer</value>
+		                </property>
+		                <property>
+		                    <name>mapred.input.dir</name>
+		                    <value>${inputDir}</value>
+		                </property>
+		                <property>
+		                    <name>mapred.output.dir</name>
+		                    <value>${outputDir}</value>
+		                </property>
+		            </configuration>
+		        </map-reduce>
+		        <ok to='secondjob'/>
+		        <error to='killcleanup'/>
+		    </action>
+		    ...
+		</workflow-app>
+	- Workflow EL functions
+		- String wf:id()
+			It returns the workflow job ID for the current workflow job.
+	- Access Hadoop counters
+		 ${hadoop:counters("mr-node")["FileSystemCounters"]["FILE_BYTES_READ"]
+		 	- Here "mr-node" is the name of map-reduce action
+	- If the oozie.wf.workflow.notification.url property is present in the workflow job properties when submitting the job, Oozie will make a notification to the provided URL when the workflow job changes its status.
+		- If the URL contains any of the following tokens, they will be replaced with the actual values by Oozie before making the notification:
+			- $jobId : The workflow job ID
+			- $status : the workflow current state
+	- Node Start and End Notifications
+		- If the oozie.wf.action.notification.url property is present in the workflow job properties when submitting the job, Oozie will make a notification to the provided URL every time the workflow job enters and exits an action node. For decision nodes, Oozie will send a single notification with the name of the first evaluation that resolved to true.
+		- If the URL contains any of the following tokens, they will be replaced with the actual values by Oozie before making the notification:
+			$jobId : The workflow job ID
+			$nodeName : The name of the workflow node
+			$status : If the action has not completed yet, it contains the action status 'S:'. If the action has ended, it contains the action transition 'T:'
+	- When submitting a workflow job, the configuration must contain a user.name property.
+	-Workflow application structure
+		- Workflow applications are installed in an HDFS directory. To submit a job for a workflow application the path to the HDFS directory where the application is must be specified.
+		- The layout of a workflow application directory is:
+		    - /workflow.xml
+		    - /config-default.xml
+		    - /lib/ (*.jar;*.so)
+		- A workflow application must contain at least the workflow definition, the workflow.xml file.
+		- All configuration files and scripts (Pig and shell) needed by the workflow action nodes should be under the application HDFS directory.
+		- All the JAR files and native libraries within the application 'lib/' directory are automatically added to the map-reduce and pig jobs classpath and LD_PATH .
+	- States
+		- PREP: When a workflow job is first create it will be in PREP state. The workflow job is defined but it is not running.
+		- RUNNING: When a CREATED workflow job is started it goes into RUNNING state, it will remain in RUNNING state while it does not reach its end state, ends in error or it is suspended.
+		- SUSPENDED: A RUNNING workflow job can be suspended, it will remain in SUSPENDED state until the workflow job is resumed or it is killed.
+		- SUCCEEDED: When a RUNNING workflow job reaches the end node it ends reaching the SUCCEEDED final state.
+		- KILLED: When a CREATED , RUNNING or SUSPENDED workflow job is killed by an administrator or the owner via a request to Oozie the workflow job ends reaching the KILLED final state.
+		- FAILED: When a RUNNING workflow job fails due to an unexpected error it ends reaching the FAILED final state.
+		- Changes in the state
+			PREP
+			PREP --> RUNNING | KILLED
+			RUNNING --> SUSPENDED | SUCCEEDED | KILLED | FAILED
+			SUSPENDED --> RUNNING | KILLED
+	- Workflow job recovery
+		- Oozie must provide a mechanism by which a a failed workflow job can be resubmitted and executed starting after any action node that has completed its execution in the prior run. This is specially useful when the already executed action of a workflow job are too expensive to be re-executed.
+		- It is the responsibility of the user resubmitting the workflow job to do any necessary cleanup to ensure that the rerun will not fail due to not cleaned up data from the previous run.
+	-  User-Retry for Workflow Actions 
+		- Oozie provides User-Retry capabilities when an action is in ERROR or FAILED state.
+	- Global configuration for actions in workflow
+		<workflow-app xmlns="uri:oozie:workflow:0.4" name="wf-name">
+		<global>
+		   <job-tracker>${job-tracker}</job-tracker>
+		   <name-node>${namd-node}</name-node>
+		   <job-xml>job1.xml</job-xml>
+		   <configuration>
+		        <property>
+		            <name>mapred.job.queue.name</name>
+		            <value>${queueName}</value>
+		        </property>
+		    </configuration>
+		</global>
+		...
+		</workflow>
+- Coordinator
+	- Simple coordinator, Run every one hour
+		<!-- Because the difference between the start time and the end time is only 60 minutes, 
+				it will only run once. -->
+		<coordinator-app name="MY_APP" frequency="60" start="2009-02-01T00:00Z" end="2009-02-02T00:00Z" timezone="UTC" xmlns="uri:oozie:coordinator:0.1">
+		   <action>
+		      <workflow>
+		         <app-path>hdfs://localhost:9000/tmp/workflows</app-path>
+		      </workflow>
+		   </action>     
+		</coordinator-app>
+	- Data dependency in workflow
+		<!-- Runs every day,  depends on data from -23rd hour to 0th hour (Last 24 hours of data) at the start time
+				-->
+		<coordinator-app name="MY_APP" frequency="${coord:days(1)} start="2009-02-01T00:00Z" end="2009-02-07T00:00Z" timezone="UTC" xmlns="uri:oozie:coordinator:0.1">
+		   <datasets>
+		      <dataset name="input1" frequency="60" initial-instance="2009-01-01T00:00Z" timezone="UTC">
+		         <uri-template>hdfs://localhost:9000/tmp/revenue_feed/${YEAR}/${MONTH}/${DAY}/${HOUR}</uri-template>
+		      </dataset>
+		   </datasets>
+		   <input-events>
+		      <data-in name="coordInput1" dataset="input1">
+		          <start-instance>${coord:current(-23)}</start-instance>
+		          <end-instance>${coord:current(0)}</end-instance>
+		      </data-in>
+		   </input-events>
+		   <action>
+		      <workflow>
+		         <app-path>hdfs://localhost:9000/tmp/workflows</app-path>
+		      </workflow>
+		   </action>     
+		</coordinator-app>
+	- Cordinator configuration
+		oozie.coord.application.path=hdfs://localhost:9000/tmp/coord
+		freq=60
+		startTime=2009-01-01T05:00Z
+		endTime=2009-01-01T06:00Z
+		workflowPath=hdfs://localhost:9000/tmp/workflows
+	- Depend on trigger.dat in particular dir, needed so that we don't use partial data.
+		<coordinator-app name="MY_APP" frequency="1440" start="2009-02-01T00:00Z" end="2009-02-07T00:00Z" timezone="UTC" xmlns="uri:oozie:coordinator:0.1">
+		   <datasets>
+		      <dataset name="input1" frequency="60" initial-instance="2009-01-01T00:00Z" timezone="UTC">
+		         <uri-template>hdfs://localhost:9000/tmp/revenue_feed/${YEAR}/${MONTH}/${DAY}/${HOUR}</uri-template>
+		         <done-flag>trigger.dat</done-flag>
+		      </dataset>
+		   </datasets>
+		   <input-events>
+		      <data-in name="coordInput1" dataset="input1">
+		          <start-instance>${coord:current(-23)}</start-instance>
+		          <end-instance>${coord:current(0)}</end-instance>
+		      </data-in>
+		   </input-events>
+		   <action>
+		      <workflow>
+		         <app-path>hdfs://localhost:9000/tmp/workflows</app-path>
+		      </workflow>
+		   </action>     
+		</coordinator-app>
+	- Pass input files as property to workflow
+		<coordinator-app name="MY_APP" frequency="1440" start="2009-02-01T00:00Z" end="2009-02-02T00:00Z" timezone="UTC" xmlns="uri:oozie:coordinator:0.1">
+		   <datasets>
+		      <dataset name="input1" frequency="60" initial-instance="2009-01-01T00:00Z" timezone="UTC">
+		         <uri-template>hdfs://localhost:9000/tmp/revenue_feed/${YEAR}/${MONTH}/${DAY}/${HOUR}</uri-template>
+		      </dataset>
+		   </datasets>
+		   <input-events>
+		      <data-in name="coordInput1" dataset="input1">
+		          <start-instance>${coord:current(-23)}</start-instance>
+		          <end-instance>${coord:current(0)}</end-instance>
+		      </data-in>
+		   </input-events>
+		   <action>
+		      <workflow>
+		         <app-path>hdfs://localhost:9000/tmp/workflows</app-path>
+		         <!-- You can define properties that you want to pass to your workflow here -->
+		         <!-- The input_files variable will contain the hdfs path for the 24 input files -->
+		         <configuration>
+		           <property>
+		              <name>input_files</name>
+		              <value>${coord:dataIn('coordInput1')}</value>
+		           </property>
+		         </configuration>
+		      </workflow>
+		   </action> 
+		</coordinator-app>
+	- Run oozie coordinator
+		$ export OOZIE_URL=http://localhost:9999/oozie/
+		$ oozie job -run -config coordinator.properties #Below is the output, Oozie job-id
+		job: 0000004-091209145813488-oozie-dani-C
+	- Oozie status of the Job
+		$ oozie job -info 0000004-091209145813488-oozie-dani-C
+	-  Check the status of the job
+		oozie jobs -jobtype coord
+	- Kill a job
+		 oozie job -kill <oozie ID>
+	- Coordinator Dataset:
+		- A dataset is a logical entity to represent a set of data produced by an application. A user can define a dataset either using its directory location or using metadata.
+		- here are five attributes to define a dataset in Oozie.
+			- "name" specifies the logical name of a dataset. There can be more than one dataset in a Coordinator. The name of a dataset must be unique within a Coordinator.
+			- "initial-instance" specifies the first time instance of valid data in a dataset. This time instance is specified in a combined date and time format[61]. Any reference to data earlier than this time is meaningless.
+			- "frequency" determines the interval of successive data instances. A user can utilize any EL functions mentioned in Parameterization of the Coordinator to define the frequency.
+			- "uri-template" specifies the template of the data directory in a dataset. The data directory of most batch systems often contains year, month, day, hour, and minute to reflect the effective data creation time. Oozie provides a few system-defined variables to specify the template. These are YEAR, MONTH, DAY, HOUR, and MINUTE. These system variables are only valid in defining uri-template. During execution, Oozie replaces these using the timestamp of a specific dataset instance.
+			- "done-flag" specifies the file name that is used to indicate whether the data is ready to be consumed. This file is used as a signal to prevent the dependent process from starting too early with just partial data as input. The done-flag is optional and defaults to _SUCCESS if it’s not specified. Usually, Hadoop MapReduce job creates a zero-size file called _SUCCESS at the end of processing to indicate data completeness. If done-flag does exist, but the value is specified as empty, Oozie just checks for the existence of the directory and uses that as a signal for completion.
+		- Example
+			<dataset name="ds_input1" frequency="${coord:hours(6)}" 
+			      initial-instance="2014-12-29T02:00Z">
+			  <uri-template> 
+			     ${baseDataDir}/revenue_feed/${YEAR}-${MONTH}-${DAY}-${HOUR}
+			   </uri-template>
+			   <done-flag>_trigger</done-flag>
+			</dataset>
+		- Example with multiple datasets, It is possible to include a file with several datasets
+			<datasets>
+			  <include>hdfs://localhost:8020/user/joe/shares/common_datasets.xml</include>
+			  <dataset name="ds_input1" frequency="${coord:hours(6)}" 
+			       initial-instance="2014-12-29T02:00Z">
+			    <uri-template> 
+			      ${baseDataDir}/revenue_feed/${YEAR}-${MONTH}-${DAY}-${HOUR}
+			    </uri-template>
+			    <done-flag>_trigger</done-flag>
+			  </dataset>
+			</datasets>
+		- common_datasets.xml
+			<datasets>
+			  <dataset name="ds_input2" frequency="${coord:hours(6)}"
+			       initial-instance="2014-12-29T02:00Z">
+			    <uri-template> 
+			      ${baseDataDir}/revenue_feed/${YEAR}-${MONTH}-${DAY}-${HOUR}
+			    </uri-template>
+			    <done-flag>_trigger</done-flag>
+			  </dataset>
+			</datasets>
+	- Coordinator Input Event
+		- While datasets declare data items of interest, <input-events> describe the actual instance(s) of dependent dataset for this Coordinator. More specifically, a Workflow will not start until all the data instances defined in the input-events are available.
+		- There is only one <input-events> section in a Coordinator, but it can include one or more data-in sections. Each data-in handles one dataset dependency. For instance, if a Coordinator depends on two different datasets, there will be two data-in definitions in the input-events section. In turn, a data-in can include one or more data instances of that dataset. Each data instance typically corresponds to a time interval and has a direct association with one directory on HDFS.
+		- A data-in definition needs three attributes.
+			1. "name", that can be used to uniquely identify this data-in section.
+			2. "dataset" indicates the name of a dataset that the application depends on. The referred dataset must be defined in the <datasets> definition section.
+			3. "instance": The instance definition specifies the data instance that the application will wait for. There are two ways to denote the instance(s). A user can define each instance using an individual <instance> tag. Alternatively, a user can specify the range of instances using <start-instance> and <end-instance> tags. Each instance is basically a timestamp which will eventually be used to replace the variables defined in the <uri-template> of a dataset definition. Defining an absolute timestamp is valid, but it is neither practical nor convenient for a long running Coordinator. Therefore, Oozie provides several EL functions to conveniently specify the batch instance(s).
+		- Example:
+			<input-events>
+			  <data-in name="event_input1" dataset="ds_input1">
+			    <start-instance>${coord:current(-4)}</start-instance>
+			    <end-instance>${coord:current(-1)}</end-instance>
+			  </data-in>
+			</input-events>
+	- Coordinator Output events
+		- In a Oozie Coordinator, <output-events> specifies the data instance produced by a Coordinator action.
+		- There can be at most one <input-events>and one <output-events> in a Coordinator.
+		- There are one or more <data-in> sections under input-events. On the other hand, there can be only one <data-out> section under output-events.
+		- There are two attributes (name and dataset) required to define a data-in as well as a data-out.
+		- Each data-in contains a single instance or a range of instances. Conversely, each data-out can contain only one instance and multiple instances are not allowed.
+		- Like input-events, a user can pass the output-directory to the Workflow as well.
+		-  Oozie waits for the data instances defined in the input-events. Oozie expects and supports the passing in of the dependent directories to the launched Workflow. However, Oozie generally doesn’t perform any special processing like data availability checks for the output-events. Oozie refers to the output-events mostly for cleaning up the output data during Coordinator reprocessing.
+		- Example
+			<output-events>
+			  <data-out name="event_output1" dataset="daily-feed">
+			    <instance>${coord:current(0)}</instance>
+			  </data-out>
+			</output-events>
+	- 
+	- Misc info about coordinator
+		-  As of now, Oozie Coordinator only supports launching Oozie Workflows and a Coordinator application can only include one Workflow application. In the future, the scope could be extended to other types of jobs as well.
+		- Workflow action states
+			- When a Coordinator job materializes a Coordinator action, Oozie assigns the action to WAITING state. In this initial state, the action waits for any dependent data for the duration of the timeout period (configurable and described in Execution Controls). If any of the dependent data is still missing after the timeout period, Oozie transitions the action to TIMEDOUT state. On the other hand, if all the data become available, Oozie moves the action’s state to READY. At this state, Oozie enforces the throttling mechanism as defined by the concurrency setting. The concurrency setting specifies the maximum number of Coordinator actions of a Coordinator job that can run simultaneously. If the action fits under the concurrency constraint, Oozie just transfers the action to the SUBMITTED state. This is when Oozie submits the corresponding Workflow.
+			- If the submission fails, Oozie moves the action to FAILED state. Otherwise, it moves it to RUNNING state and waits for the Workflow to finish. At this stage, the state of the Workflow dictates the state of the corresponding Coordinator action. More specifically, depending on whether the Workflow fails or succeeds or gets killed, Oozie transitions the state of the Coordinator action to FAILED or SUCCEEDED or KILLED respectively. A user can kill a Coordinator action at any state and that transitions the action to the KILLED state.
+		- EL functions for frequency
+			- EL functions for frequency: In our previous example Our First Coordinator Job, we used frequency="1440" for daily jobs. This frequency was expressed in minutes. However, there are some scenarios where frequencies can’t be easily expressed in absolute minutes. For example, a frequency of 1 day may not always translate to 24 hours. Some days could be 23 hours or 25 hours due to daylight savings time change. Similarly, every month does not correspond to 30 days. It could be anything between 28 and 31 days. To help the user handle these intricacies easily, Oozie provides a set of functions to define the frequency. We strongly encourage users to utilize those functions instead of using absolute value in minutes.
+			- CURRENT(N)
+				- The instance timestamp primarily depends on two time parameters from the Coordinator action and the dependent datasets. First and foremost, Coordinator action’s nominal time plays a critical role in determining the data instance. Coordinator action’s nominal time, in turn, depends on the time related attributes in the Coordinator job’s specifications such as start time and frequency. For example, if the start time of a Coordinator job is cS and the frequency is cF, the nominal time of the nth Coordinator action is calculated as follows
+				 	Nominal Time (caNT) = cS + n * cF 
+				- the dataset definition has two time attributes, initial-instance (dsII) and frequency (dsF), that also plays an important role in determining the actual data instance.
+				- Apart from the above-mentioned time attributes, the instance expressed in data-in section of a Coordinator XML plays a direct role in determining the actual dependent data directories. The user typically defines an instance using EL functions like current(n), latest(n), offset(n, timeunit), and future(n).
+				- The simplest equation to approximately calculate the timestamp of the nth instance is as follows.
+					current(n) = dsII + dsF * (n + (caNT – dsII) / dsF)
+				- The data instances before the initial-instance of any dataset doesn’t count. So if the EL function (such as current()) refers to any such dataset instance, Coordinator doesn’t really check the existence of that data. In other words, there could be some data on HDFS before the dataset’s initial-instance as defined in the dataset definition, but Oozie disregards those data instances. However, Oozie returns an empty (“”) string for any such instance. 
+			- Latest(n)
+				- The latest(n) function does not support positive integers (n) and cannot be used to look “forward” in time. Unlike the curent(n) function, specifications like latest(1) and latest(2) are not supported.
+				- Present time represents the current wall clock time when the latest evaluation logic is executed. In other words, if the same latest function is executed multiple times, it will obviously use different present (wall-clock) times for it’s dataset evaluations.
+				- On the other hand, the action’s actual time represents the time when the action is actually materialized by Oozie. Although this sounds very similar to nominal time, there are subtle but important differences. For instance, when a Coordinator is delayed and is running in a catch-up mode, an action may be actually created at 6 PM but it should have been ideally created at 2 PM. In other words, action’s nominal time is 2 PM but the action’s actual time is 6 PM.
+				- Oozie selects this option based on the property oozie.service.ELService.latest-el.use-current-time defined in the oozie-site.xml file. The default is to evaluate “latest” based on the action’s actual time.
+				- As mentioned above, Oozie evaluates latest(n) based on either the Coordinator action’s actual time or the present wall clock time. Let’s generalize this time as “look-back start time” denoted by Tlbs. At first, Oozie determines the closest time instance of the dataset to Tlbs. Oozie starts from the dataset’s initial-instance (dsII) and increments it by dataset’s frequency (dsF) until it reaches Tlbs. Let’s assume the closest timestamp value to Tlbs is determined to be Tds. Oozie first checks if the data-directory for time Tds is available. If it is available, it will consider it as the first available data instance or latest(0). If the data for Tds is not available yet, Oozie will walk back and look for data for time Tds - dsF (dataset frequency). If that data is available Oozie will consider this second time instance as the first available data instance or latest(0). If data is not available for that instance as well, Oozie will skip it and keep walking back.
+				- Continuing with this example, if all previous data instances are available, the nth available instance (latest(n)) will be the data instance for time Tds - n x dsF. If any one data instance between time Tds and Tds - n x dsF is not available for whatever reason, Oozie needs to look back further to find (latest(n) . If it can’t get to the nth instance after searching backwards all the way to the initial-instance of the dataset (dsII), Oozie will go to sleep and start the evaluation process again in the next cycle starting with the calculation of the time Tlbs. Finally, when Oozie finds the nth available instance, it returns the corresponding timestamp.
+			- dataIn(eventName)
+				- This function evaluates all input data directories of a dataset for a specific time instance and returns the directories as a string. The dataIn() function doesn’t really check if the data is available or not. This function takes ‘eventName’ as a parameter. First, Oozie identifies data-in from the input-events definition using the ‘eventName’. Secondly, Oozie finds the name of the dataset from the data-in definition. Lastly, Oozie takes the uri-template from the dataset definition and resolves the paths corresponding to the particular time instance. Oozie evaluates the time instance based on nominal time and the instance number defined in the EL function. If there are multiple instances (such as current(0), current(-1) etc.) in data-in, Oozie concatenates them using “,” as a separator.
+				- Example
+					<coordinator-app name="app-coord" frequency="${coord:days(1)}"
+					                    start="2009-01-01T24:00Z" end="2009-12-31T24:00Z" timezone="UTC"
+					                    xmlns="uri:oozie:coordinator:0.1">
+					      <datasets>
+					        <dataset name="logs" frequency="${coord:hours(1)}"
+					                 initial-instance="2009-01-01T01:00Z" timezone="UTC">
+					          <uri-template>
+					             hdfs://bar:8020/app/logs/${YEAR}/${MONTH}/${DAY}/${HOUR}
+					          </uri-template>
+					        </dataset>
+					      </datasets>
+					      <input-events>
+					        <data-in name="inputLogs" dataset="logs">
+					          <start-instance>${coord:current( -(coord:hoursInDay(0) - 1) )}</start-instance>
+					          <end-instance>${coord:current(-1)}</end-instance>
+					        </data-in>
+					      </input-events>
+					      <action>
+					        <workflow>
+					          <app-path>hdfs://bar:8020/usr/joe/logsprocessor-wf</app-path>
+					          <configuration>
+					            <property>
+					              <name>wfInput</name>
+					              <value>${coord:dataIn('inputLogs')}</value>
+					            </property>
+					         </configuration>
+					       </workflow>
+					      </action>
+					   </coordinator-app>
+			- dataOut(eventName)
+				- This function is similar to dataIn(). The key difference is, dataOut() utilizes the output-events and data-out sections whereas the dataIn() uses input-events and data-in.
+			- nominalTime()
+				This function returns the nominal time or the action creation time of a particular Coordinator action.
+			- actualTime()
+				- This function calculates the actual time of a Coordinator action as defined in Parameterization of Dataset Instances . In an ideal world, the nominal time and the actual time of an action will be the same. But during catch-up scenarios, where the Coordinator action execution is delayed, the actual time of a Coordinator action is different and later than its nominal time.
+			- Complete example
+				<coordinator-app name="my_rollup_job" start="2014-01-01T02:00Z " 
+				    end="2014-12-31T02:00Z” frequency="${coord:days(1)}"
+				    xmlns="uri:oozie:coordinator:0.4">
+				  <datasets>
+				    <dataset name="ds_input1" frequency="${coord:hours(6)}" 
+				           initial-instance="2013-12-29T02:00Z">
+				       <uri-template>
+				         hdfs://localhost:8020/user/joe/revenue_feed/${YEAR}-${MONTH}-${DAY}-
+				         ${HOUR}
+				       </uri-template>
+				       <done-flag>_trigger</done-flag>
+				    </dataset>
+				    <dataset name="daily-feed" frequency="${coord:days(1)}" 
+				          initial-instance="2013-12-29T02:00Z">
+				       <uri-template>
+				         hdfs://localhost:8020/user/joe/revenue_daily_feed/${YEAR}-${MONTH}-
+				         ${DAY}
+				       </uri-template>
+				    </dataset>
+				  </datasets>
+				  <input-events>
+				      <data-in name="event_input1" dataset="ds_input1">
+				          <start-instance>${coord:current(-4)}</start-instance>
+				          <end-instance>${coord:current(-1)}</end-instance>
+				      </data-in>
+				  </input-events>
+				  <output-events>
+				      <data-out name="event_output1" dataset="daily-feed">
+				         <instance>${coord:current(0)}</instance>
+				      </data-out>
+				  </output-events>
+				  <action>
+				     <workflow>
+				        <app-path>${myWFHomeInHDFS}/app</app-path>
+				        <property>
+				          <name>myInputDirs</name>
+				          <value>${coord:dataIn('event_input1')}</value> 
+				        </property>
+				        <property>
+				          <name>myOutputDirs</name>
+				          <value>${coord:dataOut('event_output1')}</value> 
+				        </property>
+				        <property>
+				          <name>myNominalTime</name>
+				          <value>${coord:nominalTime()}</value> 
+				        </property>
+				        <property>
+				          <name>myActualTime</name>
+				          <value>${coord:actualTime()}</value> 
+				        </property>
+				        <property>
+				          <name>myPreviousInstance</name>
+				          <value>${coord:dateOffset(coord:nominalTime(), -1, 'DAY')}</value> 
+				        </property>
+				        <property>
+				          <name>myFutureInstance</name>
+				          <value>${coord:dateOffset(coord:nominalTime(), 1, 'DAY')}</value> 
+				        </property>
+				        <property>
+				           <name>nameNode</name>
+				           <value>hdfs://localhost:8020</value> 
+				        </property>
+				        <property>
+				            <name>jobTracker</name>
+				            <value>localhost:8032</value> 
+				        </property>
+				     </workflow>
+				  </action>
+				</coordinator-app> 
+	- Backlog
+		- A Coordinator job continuously creates Coordinator actions until it reaches the end time. In an ideal situation, a Coordinator job will have only one active Coordinator action in Oozie at any give time. Let’s assume that each action completes before the nominal time of the next action under normal processing conditions. However, there are still many circumstances that result in a lot of Coordinator actions being concurrently active in the system. Let’s call this a “backlog” and this situation could occur for the following reasons:
+			- Delayed data: When any dependent data for a Coordinator is not available, Oozie has to wait. This could build up the backlog.
+			- Reprocessing: It is very common to rerun the job after its original start time due to either bad input data or a bug in the processing logic. This reprocessing scenario could cause a significant backlog.
+			- Late submission: Users could submit the Coordinator job late for various practical reasons. The size of the backlog of Coordinator actions in such situations depends on how late the submission was. The system might take a long time to catch-up to the current processing time depending on various factors.
+		- Whatever the root cause is, this backlog creates potential system instability for Oozie as well as the Hadoop services. In particular, each active Coordinator action increases the load on Oozie and Hadoop system resources such as the database, memory, CPU, and the NameNode. To address these catch-up scenarios, Oozie provides four control parameters for any Coordinator.
+			1. Throttle: A Coordinator job creates Coordinator actions periodically. Therefore, if we can regulate this materialization, the ultimate number of outstanding actions can be controlled. Oozie provides a user-level control knob called throttle which a user can specify in her Coordinator XML. This controls how many maximum Coordinator actions can be in the WAITING state for a Coordinator job at any instant. If the user doesn’t specify any value, the system default value of **12** is used. While a user can specify any value for this, there is also a system level upper-limit that an administrator can tune. The system-level limit is calculated by multiplying the throttling factor (property oozie.service.coord.materialization.throttling.factor) and the maximum internal processing queue size (property oozie.service.CallableQueueService.queue.size) defined in oozie-site.xml. In short, this setting can be tuned both at the system and the user level through the oozie-site.xml and Coordinator XML respectively.
+			2. Timeout: While ‘throttle’ restricts how many actions can be in the WAITING state, the timeout enforces how long each Coordinator action can be in WAITING. Like throttle, there are both user and system level limits to the timeout value. User can specify a timeout in minutes in the Coordinator XML. If the user doesn’t specify any timeout, Oozie defaults the value to **7 days**. In addition, Oozie enforces the maximum value that a user can specify for the timeout. Oozie system administrators can specify this using the property ‘oozie.service.coord.default.max.timeout’ in oozie-site.xml. The default maximum timeout is 60 days.
+			3. Execution order: If there are multiple actions in READY state, Oozie needs to determine which Workflow to submit first. This execution knob specifies which order Oozie should follow. There are three possible values: FIFO, LIFO, and LAST_ONLY. The default is **FIFO**. 
+			4. Concurrency : A coordinator action in READY status changes to SUBMITTED status if total current RUNNING and SUBMITTED actions are less than concurrency execution limit.
+			- Example
+				<coordinator-app name="my_second" start="${startTime}" end="${endTime}" 
+				       frequency="${coord:days(1)}"  timezone="UTC" 
+				       xmlns="uri:oozie:coordinator:0.4">
+				   <controls>
+				     <timeout>${my_timeout}</timeout>
+				     <concurrency>${my_concurrency}</concurrency>
+				     <execution>${execution_order}</execution>
+				     <throttle>${materialization_throttle}</throttle>
+				   </controls>
+				   <action>
+				      <workflow>
+				         <app-path>${appBaseDir}/app/</app-path>
+				         <configuration>
+				         <property>
+				            <name>nameNode</name>
+				            <value>${nameNode}</value>
+				          </property>
+				          <property>
+				            <name>jobTracker</name>
+				            <value>${jobTracker}</value>
+				          </property>
+				          <property>
+				            <name>exampleDir</name>
+				            <value>${appBaseDir}</value>
+				          </property>
+				         </configuration>
+				       </workflow>
+				   </action>
+				</coordinator-app>
+- Oozie Bundles
+	- The highest level of abstraction in Oozie that helps users package a bunch of Coordinator applications in to a single entity, often called a data pipeline. Bundle is a collection of Oozie Coordinator applications with a directive on when to kickoff those Coordinators. Bundles can be started, stopped, suspended, and managed as a single entity instead of managing each individual Coordinator that it’s composed of. This is a very useful level of abstraction in many large enterprises and is often called a data pipeline. These data pipelines can get rather large and complicated and the ability to manage them as a single entity instead of meddling with its individual parts brings a lot of operational benefits.
+	- The only real Bundle-specific control element that Oozie supports is the <kick-off-time>. This determines when a submitted Bundle should actually be run. Let’s assume you are submitting the Oozie jobs via the CLI. Regardless of whether the job is a Workflow, Coordinator, or a Bundle, the interface is the same. You can submit a Bundle using "oozie job –submit" or directly run it using "oozie job -run". If you execute "-run", Oozie will run the Bundle regardless of the <kick-off-time>, which will basically be ignored. But if you invoke "-submit", the Bundle will be submitted, but Oozie will not run it until the <kick-off-time> is reached. The Bundle will be in PREP state until then.
+	- Example
+		<bundle-app name='bundle-example' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' 
+		                xmlns='uri:oozie:bundle:0.2'>
+		   <parameters>
+		     <property>
+		       <name>start</name>
+		     </property>
+		     <property>
+		       <name>end</name>
+		       <value>2014-12-20T10:45Z</value>
+		     </property>
+		   </parameters>
+		   <controls>
+		     <kick-off-time>2014-12-20T10:30Z</kick-off-time>
+		   </controls>
+		  <coordinator name='coord-1'>
+		    <app-path>${nameNode}/user/apps/coord-1/coordinator.xml</app-path>
+		    <configuration>
+		      <property>
+		        <name>start</name>
+		        <value>${start}</value>
+		      </property>
+		      <property>
+		        <name>end</name>
+		        <value>${end}</value>
+		      </property>
+		    </configuration>
+		  </coordinator>
+		  <coordinator name='coord-2'>
+		    <app-path>${nameNode}/user/apps/coord-2/coordinator.xml</app-path>
+		    <configuration>
+		      <property>
+		        <name>start</name>
+		        <value>${start}</value>
+		      </property>
+		      <property>
+		        <name>end</name>
+		        <value>${end}</value>
+		      </property>
+		    </configuration>
+		  </coordinator>
+		</bundle-app>
+	- Job.properties file
+		 	nameNode=hdfs://localhost:8020
+		    jobTracker=localhost:8032
+		    oozie.bundle.application.path=${nameNode}/user/apps/bundle/
+		    start=2014-12-20T10:45Z
+		    end=2014-12-30T10:45Z
+	- Commands
+		oozie job -config job.properties -submit
+		oozie job 0000056-141219003455004-oozie-oozi-B -run
+    	oozie job 0000056-141219003455004-oozie-oozi-B –suspend
+    	oozie job 0000056-141219003455004-oozie-oozi-B -resume
+    	oozie job -info 0000046-141219003455004-oozie-oozi-B
+    - HCatalog
+    	- Reasons why HCatalog dependency is better than HDFS
+    		- Since Oozie is polling HDFS regularly, it creates a lot of load on the Hadoop NameNode. Although this may be fine for most small to medium sized systems, the larger systems with a lot of active Coordinators can destabilize the NameNode.
+    		- This polling based approach increases the processing load on the Oozie server as well, which can potentially slowdown the progress of other jobs and impact Oozie’s scalability.
+    		- Due to the polling interval, the Workflow may not be started as soon as the dependent dataset is available. For example, if the polling interval is configured to be 5 minutes, Oozie can be late by as much as 5 minutes in launching the Workflow. In short, longer polling intervals can potentially delay the Workflow launch and shorter intervals increases the load on the Oozie server and the Hadoop NameNode.
+    	- Due to the above reasons, Oozie community has always been interested in some sort of a push-model for data availability checks (instead of polling). In particular, Oozie needs to get notified asynchronously as soon as the data is available.
+    	- HCatalog is a table and storage management layer for HDFS data that can be leveraged by Oozie to eliminate frequent polling. HCatalog also offers JMS based notification as soon as any new data/partition is registered with HCatalog. Oozie exploits these notifications to trigger the Workflows to avoid HDFS polling. In summary, Oozie provides two approaches for data triggers: A) HDFS data directory based dependency which is implemented using polling B) HCatalog table/partition based data dependency using push notifications. Requirement for HCatalog is:
+    		- HCatalog should be installed in the Hadoop cluster.
+    		- The data producers need to write the data through HCatalog in addition to the conventional HDFS write. It may require some development effort from the data producers to adopt this new approach.
+    		- A JMS-based messaging system such as ActiveMQ should be installed to transmit the notifications.
+    	- Example of HCatalog dataset
+			<dataset name="hcat_dataset" frequency="${coord:days(1)}" 
+			     initial-instance="2009-02-15T08:15Z" timezone="America/Los_Angeles">
+			  <uri-template> 
+			      hcat://myhcatmetastore:9080/database1/table1/datestamp=${YEAR}
+			     ${MONTH}${DAY}${HOUR};region=USA
+			  </uri-template>
+			</dataset>
+		- The key differences in URI definition between directory based and table-based approaches are as follows.
+			- HCatalog based URI uses “hcat” in place of “hdfs” as scheme name.
+			- It uses the Hive metastore server end-point replacing the NameNode server.
+			- HCatalog implements traditional database concepts, which means it can have multiple tables. In turn, each table can have multiple partitions that are defined using partition key-value pairs. In this example, ‘datestamp’ and ‘region’ are two partition keys that identify one logical partition.

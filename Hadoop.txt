@@ -751,8 +751,7 @@ Compression
 		- Use below code to do it
 			Configuration conf = new Configuration();
 			conf.setBoolean(Job.MAP_OUTPUT_COMPRESS, true);
-			conf.setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, GzipCodec.class,
-			CompressionCodec.class);
+			conf.setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, GzipCodec.class, CompressionCodec.class);
 			Job job = new Job(conf);
 Serialization
 	- Two usages of Serialization
