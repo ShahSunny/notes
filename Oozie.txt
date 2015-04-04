@@ -980,3 +980,97 @@ More on Oozie workflow:
 			- HCatalog based URI uses “hcat” in place of “hdfs” as scheme name.
 			- It uses the Hive metastore server end-point replacing the NameNode server.
 			- HCatalog implements traditional database concepts, which means it can have multiple tables. In turn, each table can have multiple partitions that are defined using partition key-value pairs. In this example, ‘datestamp’ and ‘region’ are two partition keys that identify one logical partition.
+- Oozie CLI
+	- the CLI has an -oozie option that lets you specify the location of the server, which is also the end point for reaching the Oozie server’s web service. The CLI also takes the Unix environment variable OOZIE_URL as the default value for the server. It’s convenient and recommended to define this environment variable on the Oozie client machine to save yourself the effort of passing in the -oozie with every command you type on the Unix terminal. 
+	- The Oozie CLI tool can be finicky when it comes to the order of the arguments. This is a common issue with lot of the CLI tools in the Hadoop eco-system. So if you get some unexplained “invalid command” errors, always pay attention to the sequence of the arguments in your command-line. For instance, with the example above, you may get different results with oozie jobs -oozie <URL> and oozie -oozie <URL> jobs.
+	- It’s the following property during submission, usually defined in the job.properties file, that tells the Oozie server what kind of job is being submitted or run. Only one of these three properties can be defined per job submission, meaning a job can be either a Workflow or a Coordinator or a Bundle.
+		oozie.wf.application.path: Path to a Workflow application directory/file.
+		oozie.coord.application.path: Path to a Coordinator application directory/file.
+		oozie.bundle.application.path: Path to a Bundle application directory/file.
+	- dryrun
+		- Example
+			oozie job -dryrun -config coord_job.properties 
+		- Validates XML file, , and for the cordinators it tells things like how many actions will be run during the lifetime of the job, which can be useful information. Some sample output below.
+	- change or update
+		- Sometimes, users want to tweak and change a few properties of a running Coordinator or a Bundle job.
+		- The -change option helps achieve this. Properties like the end-time and concurrency of a Coordinator are ideal for the -change option which only accepts a handful of properties. For instance, users may not want to stop and restart a Coordinator job just to extend the end-time. Starting with version 4.1.0, Oozie also supports an -update option which can update more properties of a running job via the job.properties file than the -change option. 
+		- Using the -dryrun with the -update spits out all the changes for the user to check before updating for real.
+		- Example
+			$ oozie job -change 0000076-140402104721144-oozie-joe-C -value endtime=2014-12-01T05:00Z
+
+			$ oozie job -change 0000076-140402104721144-oozie-joe-C -value endtime=2014-12-01T05:00Z\;concurrency=100\;2014-10-01T05:00Z
+
+			$ oozie job -config job.properties -update 0000076-140402104721144-oozie-joe-C -dryrun
+		-jobs subcommmand
+			- The oozie CLI also provides a -jobs sub-command. This is primarily intended to be a monitoring option. It handles jobs in bulk unlike the -job option that handles a specific job. The basic -jobs command lists all the jobs in the system with their statuses. By default, this lists only the Workflow jobs in reverse chronological order (newest first, oldest last) based on the job’s creation time. You can add the -jobtype flag to get the Coordinator or Bundle jobs listed.
+			- There is also a special -bulk option specifically meant for Bundles. Oozie Bundles in large enterprises can get really hairy to monitor with multiple Coordinators. The -bulk option helps monitor the Bundles with a variety of filters to organize the information better. This option requires a Bundle name, but the rest of the filters are optional.
+			- Example
+				$ oozie jobs
+				$ oozie jobs -jobtype coordinator
+				$ oozie jobs -jobtype=bundle
+				$ oozie jobs -len 20 -filter status=RUNNING
+				$ oozie jobs -bulk bundle=my_bundle_app
+				$ oozie jobs -bulk 'bundle=my_bundle_app;actionstatus=SUCCEEDED'
+				$ oozie jobs -bulk bundle=test-bundle\;actionstatus=SUCCEEDED
+			- The -bulk requires Bundle name and not the Bundle job ID. Also, only the “FAILED” or “KILLED” jobs are listed by default. Use the actionstatus filter to look at jobs that are in other states as shown in the example above. When using the CLI, please escape the ; or quote the entire filter string.
+Oozie-site.xml
+	- As is customary with all the tools in the Hadoop eco-system, Oozie has its own “site” XML file on the server node which captures numerous settings specific to operating Oozie. A lot of the settings that define operational characteristics and Oozie extensions are specified in this oozie-site.xml file. 
+	- Purge service
+		- One of the many useful services of Oozie that can be managed through the settings in the oozie-site.xml is the database purge service. As you know, Oozie uses a database for its metadata and state management. This database has to be periodically cleaned up so that we don’t bump into database related performance issues. This service is called the purge service and it can be turned on by enabling org.apache.oozie.service.PurgeService. The server lets users tune several aspects of the purge service like how soon to purge Workflow jobs, how often should the purge service run etc. Do keep in mind the purge service removes only completed and succeeded jobs. It never touches the failed, killed, suspended, or timed-out jobs. Below are some of the settings that can be tuned to manage the purge service.
+		- With long-term Coordinator jobs like the ones that run for a year or two, the purge service by default does not purge completed Workflows belonging to that job even past the purge time limits for Workflows as long as the Coordinator job is still running. This used to be a common source of confusion and problem for the users and the solution was to end the Coordinator jobs and recycle them every week or month or whatever the DB load dictated. So the setting oozie.service.PurgeService.purge.old.coord.action was introduced in version 4.1.0 and lets users purge successfully completed actions even if they belong to running Coordinators.
+Job monitoring
+	- Job monitoring is an integral part of any system for effective operation and management. For a system like Oozie that often deals with time critical and revenue critical jobs, monitoring those jobs is paramount. For instance, if some job fails or runs longer than expected, it is important to know what happened and take remedial actions in a timely fashion. Oozie provides multiple ways to monitor the jobs.
+	- Ways of monitoring
+		- User Interface: Oozie web UI displays the jobs and the associated status and timelines. This UI is very basic and users can only browse jobs.
+		- Polling: Users can write their own custom monitoring system and poll Oozie using REST API or java API.
+		- Email: Oozie Workflow supports an Email action that can send an email when a Workflow action finishes.
+		- Callback: Oozie provides a callback framework where a user can pass the callback URL during Workflow submissions. When a job/action finishes, Oozie notifies through the user-defined callback URL and passes the status as payload. This notification service follows a best effort approach and provides no guarantees.
+	- The above-mentioned approaches implement some parts of an effective job monitoring system with significant shortcomings with each. The recent initiative starting with Oozie 4.0.0 around implementing a monitoring system using JMS was designed to tackle the problem from the ground up. Currently, Oozie only supports status change notification for Coordinator actions and Workflow jobs. There is no support yet for Coordinator jobs, Workflow actions, and Bundle jobs.
+Reprocessing / Rerun
+	- There are three scenarios when a user needs to rerun the same job.
+		- The job failed due to a transient error.
+		- The job succeeded but the input data was bad.
+		- The application logic was flawed or there was a bug in the code.
+	- Reprocessing is driven through the job -rerun sub-command and option of the Oozie CLI.
+	- Workflow reprocessing
+		-  Workflow jobs should be in either SUCCEEDED, FAILED, or KILLED state to be eligible for reprocessing. Basically it should be in a terminal state. The following command will rerun a Workflow job that is already done.
+			- oozie job -rerun 0000092-141219003455004-oozie-joe-W -config job.properties 
+		- In order to rerun a Workflow on Oozie versions before 4.1.0, you have to specify all of the Workflow properties (job.properties file above). This is slightly different from the Coordinator and Bundle reprocessing which reuses the original configuration as explained later in this section. This inconsistency has been fixed in Oozie 4.1.0 and Workflows can also reuse the original properties now.
+		- While the above example will try to rerun the Workflow, there are a few more details which will determine what exactly happens with that command. 
+			- It’s the user’s responsibility to make sure the required cleanup happens before rerunning the Workflow. As you know, Hadoop doesn’t like the existence of output directory and the prepare element introduced in Action Types exists just for this reason. It’s always a good idea to use the prepare element in every action in all Workflows to make the actions retryable. This may not be useful for normal processing, but will be a huge help during reprocessing.
+			- There are two configuration properties relevant to rerunning Workflows, oozie.wf.rerun.skip.nodes and oozie.wf.rerun.failnodes. We can use one or the other, not both, As always, they can be added to the job.properties file or passed in via the -D option on the command-line.
+			- The property oozie.wf.rerun.skip.nodes is used to specify a comma-separated list of Workflow action nodes to be skipped during the rerun.
+			- By default, Workflow reruns start executing from the failed nodes in the prior run. That’s why if you run the command in the example above on a successfully completed Workflow, it will often return without doing anything. The property oozie.wf.rerun.failnodes can be set to false to tell Oozie that the entire Workflow needs to be rerun. This option cannot be used with the previous one.
+			- There is a Workflow EL function named wf:run() that returns the number of the execution attempt for this Workflow. Workflows can make some interesting decisions based on this run number if they want to.
+			- The first command will rerun a Workflow that succeeded during the first try. The second command will skip a couple of nodes during reprocessing.
+				- oozie job -rerun 0000092-141219003455004-oozie-oozi-W -config job.properties -Doozie.wf.rerun.failnodes=false
+				- oozie job -rerun 0000092-141219003455004-oozie-oozi-W -config job.properties -Doozie.wf.rerun.skip.nodes=node_A,node_B
+	- Coordinator Reprocessing
+		- Coordinator actions can be reprocessed as long as they are in a completed state. But the parent Coordinator job itself cannot be in a FAILED or KILLED state. Users can select the Coordinator action(s) to rerun using either date(s) or action number(s). In addition, a user also has the option to specify either contiguous or non-contiguous actions to rerun. To rerun the entire Coordinator job, a user can give the actual start time and end time as a range. However, a user can only specify one type of option in one retry attempt, either date or action number. For the Coordinator reruns, Oozie reuses the original Coordinator definition and configuration. 
+		- During reprocessing of a Coordinator, Oozie tries to help the retry attempt by cleaning up the output directories by default. For this, it uses the <output-events> specification in the Coordinator XML to remove the old output before running the new attempt. Users can override this default behavior using the –noCleanup option.
+		- Moreover, a user can also decide to reevaluate the instances of data (current()/latest()) using the –refresh option. In this case, Oozie rechecks all current() instances and recalculates/rechecks the latest().
+		- Example
+			1. oozie job -rerun 0000673-120823182447665-oozie-hado-C -refresh -date 2014-10-20T05:00Z::2014-10-25T20:00Z, 2014-10-28T01:00Z, 2014-10-30T22:00Z
+			2. oozie job -rerun 0000673-120823182447665-oozie-hado-C -nocleanup  -action 4,7-10 
+	- Bundle Reprocessing
+		- Bundle reprocessing is basically reprocessing the Coordinator actions that have been run under the auspices of this particular Bundle invocation. It does provide options to rerun some of the Coordinators and/or actions corresponding to some of the dates. The options are -coordinator and -date.
+			Examples
+ 			- oozie job -rerun 0000094-141219003455004-oozie-joe-B -coordinator test-coord -date 2014-12-28T01:28Z
+				- Coordinators [test-coord] of bundle 0000094-141219003455004-oozie-joe-B are scheduled to rerun on date ranges [2014-12-28T01:28Z].
+			- $ oozie job -rerun 0000094-141219003455004-oozie-joe-B -coordinator test-coord -date 2014-12-28T01:28Z::2015-01-06T00:30Z
+				- Coordinators [test-coord] of bundle 0000094-141219003455004-oozie-joe-B are scheduled to rerun on date ranges [2014-12-28T01:28Z::2015-01-06T00:30Z].
+			- $ oozie job -rerun 0000094-141219003455004-oozie-joe-B -date 2014-12-28T01:28Z
+				- All coordinators of bundle 0000094-141219003455004-oozie-joe-B are scheduled to rerun on the date ranges [2014-12-28T01:28Z].
+- Development and Testing Oozie Applications
+	- Given the complexity of deploying and debugging Oozie applications, coming up with an efficient develop-test-debug process is very important. Below are some recommendations on how to approach development of Oozie applications. Some of these are just best practices and common-sense tips and users will do well to incorporate these in to their development processes.
+		- Develop Oozie applications in an incremental fashion. It may be too much to expect to write a Workflow with 15 actions and test and get it running in one shot. Start with the first action and make sure it works fine via the Workflow and expand incrementally.
+		- Detach Oozie job development from the individual action development. It is a bad idea to debug Hive and Pig issues via Oozie Workflows. Make sure you first develop the Hive or Pig code separately and get it working before trying to put it into a Oozie Workflow. It is extremely inefficient to write a brand new Hive or Pig script and test it through Oozie for the first time. It’s a lot more easier to catch simple Hive and Pig errors using their respective CLI clients.
+		- Expanding on the previous suggestion, when you are developing Bundles with many Coordinators inter-connected by data dependencies or complex Workflows with many fork/join, it may be better to makes sure the Oozie application logic works as intended before adding complex, long-running actions. In other words, build the shell of your Oozie application with fake actions and see if the control flow works the way you want it to. A simple shell action that just does an “echo Hello” is often good enough to test the Oozie parts of your application. You can then replace these fake shell actions with real actions.
+		- Develop your job XMLs using an XML editor instead of a text editor. Use the validate and dryrun options of the Oozie CLI liberally to catch simple errors.
+		- Write scripts to automate simple steps during development and testing. For example, every time you change your Workflow XML, your script could run a validate command, remove the existing file/dir from HDFS, and copy the new file/dir to HDFS and run the app (if that’s required). Forgetting to copy the files to HDFS is a common oversight costing the users many minutes during every iteration.
+		- Parameterize as much as possible. This makes the jobs very flexible and saves time during testing. For example, if you are developing a Bundle and have to run it many times to test and fix during development, parameterize the kick-off-time control setting. This saves you time since you don’t have to reload the Bundle XML to HDFS every time just for changing the kick-off-time. It can and should be controlled externally, outside the XML, using parameterization.
+- MiniOozie, LocalOozie
+	- There are ways to test and verify Oozie applications locally in a development environment instead of having to go to a full-fledged remote server. Unfortunately, these testing frameworks are not very sophisticated, well maintained, nor widely adopted. So users have not had great success with these tools and these approaches may never substitute real testing against a real Oozie server and a Hadoop cluster. But it may still be worthwhile to try to get it working for your application. These approaches should work at least for simple Workflows and Coordinators.
+	- MiniOozie: Oozie provides a junit test class called MiniOozie for users to test Workflow and Coordinator applications. IDEs like Eclipse and IntelliJ can directly import the MiniOozie maven project. Please refer to the test case in the Oozie source tree under minitest/src/test/java for an example on how to use MiniOozie. MiniOozie uses LocalOozie internally.
+	- LocalOozie: We can think of LocalOozie as embedded Oozie. It simulates an Oozie deployment locally with the intention of providing an easy testing and debugging environment for Oozie application developers. The way to use it is to get an Oozieclient object from a LocalOozie class and use it like a normal java Oozie API client.
+
