@@ -1,3 +1,4 @@
+LA7824
 - Oozie is a server based Workflow Engine specialized in running workflow jobs with actions that run Hadoop Map/Reduce and Pig jobs.
 - Oozie is a Java Web-Application that runs in a Java servlet-container.
 - For the purposes of Oozie, a workflow is a collection of actions (i.e. Hadoop Map/Reduce jobs, Pig jobs) arranged in a control dependency DAG (Direct Acyclic Graph). "control dependency" from one action to another means that the second action can't run until the first action has completed.
@@ -1073,4 +1074,3 @@ Reprocessing / Rerun
 	- There are ways to test and verify Oozie applications locally in a development environment instead of having to go to a full-fledged remote server. Unfortunately, these testing frameworks are not very sophisticated, well maintained, nor widely adopted. So users have not had great success with these tools and these approaches may never substitute real testing against a real Oozie server and a Hadoop cluster. But it may still be worthwhile to try to get it working for your application. These approaches should work at least for simple Workflows and Coordinators.
 	- MiniOozie: Oozie provides a junit test class called MiniOozie for users to test Workflow and Coordinator applications. IDEs like Eclipse and IntelliJ can directly import the MiniOozie maven project. Please refer to the test case in the Oozie source tree under minitest/src/test/java for an example on how to use MiniOozie. MiniOozie uses LocalOozie internally.
 	- LocalOozie: We can think of LocalOozie as embedded Oozie. It simulates an Oozie deployment locally with the intention of providing an easy testing and debugging environment for Oozie application developers. The way to use it is to get an Oozieclient object from a LocalOozie class and use it like a normal java Oozie API client.
-
