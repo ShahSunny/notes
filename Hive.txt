@@ -1,0 +1,538 @@
+- Ways to execute hive using CLI
+	- hive -f script.q
+	- shive -e 'SELECT * FROM dummy'
+- In both interactive and noninteractive mode, Hive will print information to standard error—such as the time taken to run a query—during the course of operation. You can suppress these messages using the -S option at launch time, which has the effect of showing only the output result for queries
+- Create table
+	CREATE TABLE records (year STRING, temperature INT, quality INT)
+	ROW FORMAT DELIMITED
+	  FIELDS TERMINATED BY '\t';
+- Load data in table
+	- Example
+		LOAD DATA LOCAL INPATH 'input/ncdc/micro-tab/sample.txt' OVERWRITE INTO TABLE records;
+	- Running this command tells Hive to put the specified local file in its warehouse directory. This is a simple filesystem operation. There is no attempt, for example, to parse the file and store it in an internal database format, because Hive does not mandate any particular file format. Files are stored verbatim; they are not modified by Hive.
+	- The OVERWRITE keyword in the LOAD DATA statement tells Hive to delete any existing files in the directory for the table. If it is omitted, the new files are simply added to the table’s directory (unless they have the same names, in which case they replace the old files).
+- Querying data
+	hive> SELECT year, MAX(temperature)
+    > FROM records
+    > WHERE temperature != 9999 AND quality IN (0, 1, 4, 5, 9)
+    > GROUP BY year;
+- Configuring Hive
+	- Hive is configured using an XML configuration file like Hadoop’s. The file is called hive-site.xml and is located in Hive’s conf directory. This file is where you can set properties that you want to set every time you run Hive. The same directory contains hive-default.xml, which documents the properties that Hive exposes and their default values.
+	- You can override the configuration directory that Hive looks for in hive-site.xml by passing the --config option to the hive command:
+		-  hive --config /Users/tom/dev/hive-conf
+	- The hive-site.xml file is a natural place to put the cluster connection details: you can specify the filesystem and resource manager using the usual Hadoop properties, fs.defaultFS and yarn.resourcemanager.address (see Appendix A for more details on configuring Hadoop). If not set, they default to the local filesystem and the local (in-process) job runner
+	- Hive also permits you to set properties on a per-session basis, by passing the -hiveconf option to the hive command. For example, the following command sets the cluster (in this case, to a pseudodistributed cluster) for the duration of the session:
+		- % hive -hiveconf fs.defaultFS=hdfs://localhost \
+			-hiveconf mapreduce.framework.name=yarn \
+			-hiveconf yarn.resourcemanager.address=localhost:8032 
+	- You can change settings from within a session, too, using the SET command. This is useful for changing Hive settings for a particular query. For example, the following command ensures buckets are populated according to the table definition (see Buckets):
+		- hive> SET hive.enforce.bucketing=true;
+	- To see the current value of any property, use SET with just the property name:
+		- hive> SET hive.enforce.bucketing;
+		  hive.enforce.bucketing=true
+- Execution Engines
+	- Hive was originally written to use MapReduce as its execution engine, and it is still the default. It is now possible to run Hive using Apache Tez as its execution engine, and work is underway to support Spark (see Chapter 19) too. Both Tez and Spark are general DAG (directed acyclic graph) engines that offer more flexibility and higher performance than MapReduce. For example, unlike MapReduce, where intermediate job output is materialized to HDFS, Tez and Spark can avoid replication overhead by writing the intermediate output to local disk, or even store it in memory (at the request of the Hive planner).
+	- The execution engine is controlled by the hive.execution.engine property, which defaults to mr (for MapReduce). It’s easy to switch the execution engine on a per-query basis, so you can see the effect of a different engine on a particular query. Set Hive to use Tez as follows:
+		hive> SET hive.execution.engine=tez;
+- Logging
+	- You can find Hive’s error log on the local filesystem at ${java.io.tmpdir}/${user.name}/hive.log. It can be very useful when trying to diagnose configuration problems or other types of error. Hadoop’s MapReduce task logs are also a useful source for troubleshooting.
+	- On many systems ${java.io.tmpdir} is /tmp, but if it’s not, or if you want to set the logging directory to be another location, then use the following
+		- % hive -hiveconf hive.log.dir='/tmp/${user.name}'
+	- The logging configuration is in conf/hive-log4j.properties, and you can edit this file to change log levels and other logging-related settings. However, often it’s more convenient to set logging configuration for the session. For example, the following handy invocation will send debug messages to the console:
+		% hive -hiveconf hive.root.logger=DEBUG,console
+- Ways to communicate with Hive
+	- Thrift client
+	- JDBC driver
+	- ODBC driver
+- The Metastore
+	- The metastore is the central repository of Hive metadata. The metastore is divided into two pieces: a service and the backing store for the data. By default, the metastore service runs in the same JVM as the Hive service and contains an embedded Derby database instance backed by the local disk. This is called the embedded metastore configuration 
+	- Using an embedded metastore is a simple way to get started with Hive; however, only one embedded Derby database can access the database files on disk at any one time, which means you can have only one Hive session open at a time that shares the same metastore. Trying to start a second session produces an error when it attempts to open a connection to the metastore.
+	- The solution to supporting multiple sessions (and therefore multiple users) is to use a standalone database. This configuration is referred to as a local metastore, since the metastore service still runs in the same process as the Hive service, but connects to a database running in a separate process, either on the same machine or on a remote machine. Any JDBC-compliant database may be used by setting the javax.jdo.option.*.
+	- MySQL is a popular choice for the standalone metastore. In this case, the javax.jdo.option.ConnectionURL is set to jdbc:mysql://host/dbname?createDatabaseIfNotExist=true, and the javax.jdo.option.ConnectionDriverName is set to com.mysql.jdbc.Driver. (The username and password should be set, too, of course.) The JDBC driver JAR file for MySQL (Connector/J) must be on Hive’s classpath, which is simply achieved by placing it in Hive’s lib directory.
+	- Going a step further, there’s another metastore configuration called a remote metastore, where one or more metastore servers run in separate processes to the Hive service. This brings better manageability and security because the database tier can be completely firewalled off, and the clients no longer need the database credentials.
+	- A Hive service is configured to use a remote metastore by setting hive.metastore.uris to the metastore server URIs, separated by commas if there is more than one. Metastore server URIs are of the form thrift://host:port, where the port corresponds to the one set by METASTORE_PORT when starting the metastore server (see Hive Services).
+Comparison with Traditional Databases
+	- Schema on Read Versus Schema on Write
+		- In a traditional database, a table’s schema is enforced at data load time. If the data being loaded doesn’t conform to the schema, then it is rejected. This design is sometimes called schema on write because the data is checked against the schema when it is written into the database.
+		- Hive, on the other hand, doesn’t verify the data when it is loaded, but rather when a query is issued. This is called schema on read.
+		- There are trade-offs between the two approaches. Schema on read makes for a very fast initial load, since the data does not have to be read, parsed, and serialized to disk in the database’s internal format. The load operation is just a file copy or move. It is more flexible, too: consider having two schemas for the same underlying data, depending on the analysis being performed. (This is possible in Hive using external tables;)
+		- Schema on write makes query time performance faster because the database can index columns and perform compression on the data. The trade-off, however, is that it takes longer to load data into the database. Furthermore, there are many scenarios where the schema is not known at load time, so there are no indexes to apply, because the queries have not been formulated yet. These scenarios are where Hive shines.
+	- Updates, Transactions, and Indexes
+		- Updates, transactions, and indexes are mainstays of traditional databases. Yet, until recently, these features have not been considered a part of Hive’s feature set. This is because Hive was built to operate over HDFS data using MapReduce, where full-table scans are the norm and a table update is achieved by transforming the data into a new table. For a data warehousing application that runs over large portions of the dataset, this works well.
+		- Hive has long supported adding new rows in bulk to an existing table using INSERT INTO to add new data files to a table. From release 0.14.0, finer grained changes are possible, so you can call INSERT INTO TABLE ... VALUES to insert small batches of values computed in SQL. In addition, it is possible to UPDATE and DELETE rows in a table.
+		- Since HDFS does not provide in-place file updates, changes resulting from inserts, updates, and deletes are stored in small delta files. Delta files are periodically merged into the base table files by MapReduce jobs that are run in the background by the metastore. These features only work in the context of transactions (introduced in Hive 0.13.0), so the table they are being used on needs to have transactions enabled on it. Queries reading the table are guaranteed to see a consistent snapshot of the table.
+		- Hive also has support for table- and partition-level locking. Locks prevent, for example, one process from dropping a table while another is reading from it. Locks are managed transparently using ZooKeeper, so the user doesn’t have to acquire or release them, although it is possible to get information about which locks are being held via the SHOW LOCKS statement. By default, locks are not enabled.
+		- Hive indexes can speed up queries in certain cases. A query such as SELECT * from t WHERE x = a, for example, can take advantage of an index on column x, since only a small portion of the table’s files need to be scanned. There are currently two index types: compact and bitmap. (The index implementation was designed to be pluggable, so it’s expected that a variety of implementations will emerge for different use cases.)
+		- Compact indexes store the HDFS block numbers of each value, rather than each file offset, so they don’t take up much disk space but are still effective for the case where values are clustered together in nearby rows. Bitmap indexes use compressed bitsets to efficiently store the rows that a particular value appears in, and they are usually appropriate for low-cardinality columns (such as gender or country).
+HiveQL
+	- Hive’s SQL dialect, called HiveQL is a mixture of SQL-92, MySQL, and Oracle’s SQL dialect.
+	- The level of SQL-92 support has improved over time, and will likely continue to get better. HiveQL also provides features from later SQL standards, such as window functions (also know as analytic functions) from SQL:2003. Some of Hive’s non-standard extensions to SQL were inspired by MapReduce, such as multitable inserts and the TRANSFORM, MAP, and REDUCE clauses.
+	- Datatypes
+		- Primitive	
+			- BOOLEAN	True/false value					
+			- TINYINT	1-byte (8-bit) signed integer, from -128 to 127	1Y
+			- SMALLINT	2-byte (16-bit) signed integer, from -32,768 to 32,767	1S
+			- INT	4-byte (32-bit) signed integer, from -2,147,483,648 to 2,147,483,647	1
+			- BIGINT	8-byte (64-bit) signed integer, from -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807	1L
+			- FLOAT	4-byte (32-bit) single-precision floating-point number	1.0
+			- DOUBLE	8-byte (64-bit) double-precision floating-point number	1.0
+			- DECIMAL	Abitrary-precision signed decimal number	1.0
+				- The DECIMAL data type is used to represent arbitrary-precision decimals, like Java’s BigDecimal, and are commonly used for representing currency values. DECIMAL values are stored as unscaled integers. The precision is the number of digits in the unscaled value, and the scale is the number of digits to the right of the decimal point. So, for example, DECIMAL(5,2) stores numbers between −999.99 and 999.99. If the scale is omitted then it defaults to 0, so DECIMAL(5)stores numbers in the range −99,999 to 99,999 (that is, integers). If the precision is omitted then it defaults to 10, so DECIMAL is equivalent to DECIMAL(10,0). The maximum allowed precision is 38, and scale must be no larger than precision.
+			- STRING	Unbounded variable-length character string	'a', "a"
+				- The theoretical maximum-size STRING that may be stored is 2GB, although in practice it may be inefficient to materialize such large values.
+			- VARCHAR	Variable-length character string	'a', "a"
+				- VARCHAR types are similar except they are declared with a maximum length between 1 and 65355; for example, VARCHAR(100). 
+			- CHAR	Fixed-length character string	'a', "a"
+			- TIMESTAMP	Timestamp with nanosecond precision	1325502245000, '2012-01-02 03:04:05.123456789'
+				- The TIMESTAMP data type stores timestamps with nanosecond precision. Hive comes with UDFs for converting between Hive timestamps, Unix timestamps (seconds since the Unix epoch), and strings, which makes most common date operations tractable. TIMESTAMP does not encapsulate a timezone; however, the to_utc_timestamp and from_utc_timestamp functions make it possible to do timezone conversions.
+			- DATE	Date	'2012-01-02'
+		- Complex	
+			- ARRAY	An ordered collection of fields. The fields must all be of the same type.	array(1, 2)
+			- MAP	An unordered collection of key-value pairs. Keys must be primitives; values may be any type. For a particular map, the keys must be the same type, and the values must be the same type.	map('a', 1, 'b', 2)
+			- STRUCT	A collection of named fields. The fields may be of different types.	struct('a', 1, 1.0)[b], named_struct('col1', 'a', 'col2', 1, 'col3', 1.0)
+			- UNION	A value that may be one of a number of defined data types. The value is tagged with an integer representing its data type in the union (by 0-index).	create_union(1, 'a', 63)
+			- Example
+				CREATE TABLE complex (
+				  c1 ARRAY<INT>,
+				  c2 MAP<STRING, INT>,
+				  c3 STRUCT<a:STRING, b:INT, c:DOUBLE>,
+				  c4 UNIONTYPE<STRING, INT>
+				);
+			- hive> SELECT c1[0], c2['b'], c3.c, c4 FROM complex;
+				1    2    1.0    {1:63}
+	- Operators and Functions
+		- The usual set of SQL operators is provided by Hive: relational operators (such as x = 'a' for testing equality, x IS NULL for testing nullity and x LIKE 'a%' for pattern matching), arithmetic operators (such as x + 1 for addition), and logical operators (such as x OR y for logical OR). The operators match those in MySQL, which deviates from SQL-92 because || is logical OR, not string concatenation. Use the concat function for the latter in both MySQL and Hive.
+		- Hive comes with a large number of built-in functions—too many to list here—divided into categories that include mathematical and statistical functions, string functions, date functions (for operating on string representations of dates), conditional functions, aggregate functions, and functions for working with XML (using the xpath function) and JSON.
+		- You can retrieve a list of functions from the Hive shell by typing SHOW FUNCTIONS.[109] To get brief usage instructions for a particular function, use the DESCRIBE command and for examples use, DESCRIBE FUNCTION EXTENDED
+			- Example 
+				 DESCRIBE FUNCTION length;
+	- Conversions
+		- Primitive types form a hierarchy that dictates the implicit type conversions Hive will perform in function and operator expressions. For example, a TINYINT will be converted to an INT if an expression expects an INT; however, the reverse conversion will not occur, and Hive will return an error unless the CAST operator is used.
+		- The implicit conversion rules can be summarized as follows. Any numeric type can be implicitly converted to a wider type, or to a text type (STRING, VARCHAR, CHAR) . All the text types can be implicitly converted to another text type. Perhaps surprisingly, they can also be converted to DOUBLE or DECIMAL. BOOLEAN types cannot be converted to any other type, and they cannot be implicitly converted to any other type in expressions. TIMESTAMP and DATE can be implicitly converted to a text type.
+		- You can perform explicit type conversion using CAST. For example, CAST('1' AS INT) will convert the string '1' to the integer value 1. If the cast fails—as it does in CAST('X' AS INT), for example—the expression returns NULL.
+- Tables
+	- A Hive table is logically made up of the data being stored and the associated metadata describing the layout of the data in the table. The data typically resides in HDFS, although it may reside in any Hadoop filesystem, including the local filesystem or S3.
+	- Hive supports database facility and provides commands such as CREATE DATABASE dbname, USE dbname, and DROP DATABASE dbname. You can fully qualify a table by writing dbname.tablename. If no database is specified, tables belong to the default database.
+	- Managed Tables and External Tables
+		- When you create a table in Hive, by default Hive will manage the data, which means that Hive moves the data into its warehouse directory. Alternatively, you may create an external table, which tells Hive to refer to the data that is at an existing location outside the warehouse directory.
+		- The difference between the two table types is seen in the LOAD and DROP semantics.
+		- Managed table
+			- When you load data into a managed table, it is moved into Hive’s warehouse directory. For example:
+				- CREATE TABLE managed_table (dummy STRING);
+				- LOAD DATA INPATH '/user/tom/data.txt' INTO table managed_table;
+					- will move the file hdfs://user/tom/data.txt into Hive’s warehouse directory for the managed_table table, which is hdfs://user/hive/warehouse/managed_table.
+			- If the table is later dropped, using: DROP TABLE managed_table; the table, including its metadata and its data, is deleted. It bears repeating that since the initial LOAD performed a move operation, and the DROP performed a delete operation, the data no longer exists anywhere. This is what it means for Hive to manage the data.
+		- External Tables
+			- An external table behaves differently. You control the creation and deletion of the data. The location of the external data is specified at table creation time:
+			- CREATE EXTERNAL TABLE external_table (dummy STRING)
+  				LOCATION '/user/tom/external_table';
+			- LOAD DATA INPATH '/user/tom/data.txt' INTO TABLE external_table;
+			- With the EXTERNAL keyword, Hive knows that it is not managing the data, so it doesn’t move it to its warehouse directory. Indeed, it doesn’t even check whether the external location exists at the time it is defined. This is a useful feature because it means you can create the data lazily after creating the table.
+			- When you drop an external table, Hive will leave the data untouched and only delete the metadata.
+- Partitions and Buckets
+	- Hive organizes tables into partitions, a way of dividing a table into coarse-grained parts based on the value of a partition column, such as a date. Using partitions can make it faster to do queries on slices of the data.
+	- Tables or partitions may be subdivided further into buckets to give extra structure to the data that may be used for more efficient queries. For example, bucketing by user ID means we can quickly evaluate a user-based query by running it on a randomized sample of the total set of users.
+	- Partitions
+		- To take an example where partitions are commonly used, imagine logfiles where each record includes a timestamp. If we partitioned by date, then records for the same date would be stored in the same partition. The advantage to this scheme is that queries that are restricted to a particular date or set of dates can be answered much more efficiently because they only need to scan the files in the partitions that the query pertains to. Notice that partitioning doesn’t preclude more wide-ranging queries: it is still feasible to query the entire dataset across many partitions.
+		- A table may be partitioned in multiple dimensions. For example, in addition to partitioning logs by date, we might also subpartition each date partition by country to permit efficient queries by location.
+		- Partitions are defined at table creation time using the PARTITIONED BY clause,[112] which takes a list of column definitions. For the hypothetical logfiles example, we might define a table with records comprising a timestamp and the log line itself:
+			- CREATE TABLE logs (ts BIGINT, line STRING) PARTITIONED BY (dt STRING, country STRING);
+		- When we load data into a partitioned table, the partition values are specified explicitly:
+			- LOAD DATA LOCAL INPATH 'input/hive/partitions/file1' INTO TABLE logs PARTITION (dt='2001-01-01', country='GB');
+		- At the filesystem level, partitions are simply nested subdirectories of the table directory. After loading a few more files into the logs table, the directory structure might look like this:
+			/user/hive/warehouse/logs
+			├── dt=2001-01-01/
+			│   ├── country=GB/
+			│   │   ├── file1
+			│   │   └── file2
+			│   └── country=US/
+			│       └── file3
+			└── dt=2001-01-02/
+			    ├── country=GB/
+			    │   └── file4
+			    └── country=US/
+			        ├── file5
+			        └── file6
+		- We can ask Hive for the partitions in a table using SHOW PARTITIONS:
+			- hive> SHOW PARTITIONS logs;
+				dt=2001-01-01/country=GB
+				dt=2001-01-01/country=US
+				dt=2001-01-02/country=GB
+				dt=2001-01-02/country=US
+		- One thing to bear in mind is that the column definitions in the PARTITIONED BY clause are full-fledged table columns, called partition columns; however, the datafiles do not contain values for these columns, since they are derived from the directory names.
+	- Buckets
+		- There are two reasons why you might want to organize your tables (or partitions) into buckets. 
+			- The first is to enable more efficient queries. Bucketing imposes extra structure on the table, which Hive can take advantage of when performing certain queries. In particular, a join of two tables that are bucketed on the same columns—which include the join columns—can be efficiently implemented as a map-side join.
+			- The second reason to bucket a table is to make sampling more efficient. When working with large datasets, it is very convenient to try out queries on a fraction of your dataset while you are in the process of developing or refining them.
+		- let’s see how to tell Hive that a table should be bucketed. We use the CLUSTERED BY clause to specify the columns to bucket on and the number of buckets.
+			- CREATE TABLE bucketed_users (id INT, name STRING) CLUSTERED BY (id) INTO 4 BUCKETS;
+				- Here we are using the user ID to determine the bucket (which Hive does by hashing the value and reducing modulo the number of buckets), so any particular bucket will effectively have a random set of users in it.
+		- In the map-side join case, where the two tables are bucketed in the same way, a mapper processing a bucket of the left table knows that the matching rows in the right table are in its corresponding bucket, so it need only retrieve that bucket (which is a small fraction of all the data stored in the right table) to effect the join. This optimization also works when the number of buckets in the two tables are multiples of each other; they do not have to have exactly the same number of buckets. 
+		- The data within a bucket may additionally be sorted by one or more columns. This allows even more efficient map-side joins, since the join of each bucket becomes an efficient merge-sort. The syntax for declaring that a table has sorted buckets is:
+			CREATE TABLE bucketed_users (id INT, name STRING) CLUSTERED BY (id) SORTED BY (id ASC) INTO 4 BUCKETS;
+		- Hive does not check that the buckets in the datafiles on disk are consistent with the buckets in the table definition (either in number or on the basis of bucketing columns). If there is a mismatch, you may get an error or undefined behavior at query time. For this reason, it is advisable to get Hive to perform the bucketing.
+		- To populate the bucketed table, we need to set the hive.enforce.bucketing property to true so that Hive knows to create the number of buckets declared in the table definition. Then it is a matter of just using the INSERT command:
+			INSERT OVERWRITE TABLE bucketed_users SELECT * FROM users;
+		- Physically, each bucket is just a file in the table (or partition) directory. The filename is not important, but bucket n is the nth file when arranged in lexicographic order. In fact, buckets correspond to MapReduce output file partitions: a job will produce as many buckets (output files) as reduce tasks. We can see this by looking at the layout of the bucketed_users table we just created. Running this command:
+			hive> dfs -ls /user/hive/warehouse/bucketed_users;
+				- Shows that four files were created, with the following names (the name is generated by Hive):
+					000000_0
+					000001_0
+					000002_0
+					000003_0
+		- SELECT * FROM bucketed_users TABLESAMPLE(BUCKET 1 OUT OF 4 ON id);
+			- Returns output from the first bucket
+		- Bucket numbering is 1-based, so this query retrieves all the users from the first of four buckets. For a large, evenly distributed dataset, approximately one quarter of the table’s rows would be returned. It’s possible to sample a number of buckets by specifying a different proportion (which need not be an exact multiple of the number of buckets, as sampling is not intended to be a precise operation). For example, this query returns half of the buckets:
+			hive> SELECT * FROM bucketed_users TABLESAMPLE(BUCKET 1 OUT OF 2 ON id);
+		- Sampling a bucketed table is very efficient because the query only has to read the buckets that match the TABLESAMPLE clause. Contrast this with sampling a nonbucketed table using the rand() function, where the whole input dataset is scanned, even if only a very small sample is needed:
+- Storage Formats
+	- There are two dimensions that govern table storage in Hive: the row format and the file format. The row format dictates how rows, and the fields in a particular row, are stored. In Hive parlance, the row format is defined by a SerDe, a portmanteau word for a Serializer-Deserializer.
+	- When acting as a deserializer, which is the case when querying a table, a SerDe will deserialize a row of data from the bytes in the file to objects used internally by Hive to operate on that row of data. When used as a serializer, which is the case when performing an INSERT or CTAS (see Importing Data), the table’s SerDe will serialize Hive’s internal representation of a row of data into the bytes that are written to the output file.
+	- The file format dictates the container format for fields in a row. The simplest format is a plain-text file, but there are row-oriented and column-oriented binary formats available, too.
+	- The default storage format: Delimited text
+		- When you create a table with no ROW FORMAT or STORED AS clauses, the default format is delimited text with one row per line.
+		- The default row delimiter is not a tab character, but the Control-A character from the set of ASCII control codes (it has ASCII code 1). The choice of Control-A, sometimes written as ^A in documentation, came about because it is less likely to be a part of the field text than a tab character. There is no means for escaping delimiter characters in Hive, so it is important to choose ones that don’t occur in data fields.
+		- The default collection item delimiter is a Control-B character, used to delimit items in an ARRAY or STRUCT, or in key-value pairs in a MAP. The default map key delimiter is a Control-C character, used to delimit the key and value in a MAP. Rows in a table are delimited by a newline character.
+		- The preceding description of delimiters is correct for the usual case of flat data structures, where the complex types contain only primitive types. For nested types, however, this isn’t the whole story, and in fact the level of the nesting determines the delimiter.
+		- For an array of arrays, for example, the delimiters for the outer array are Control-B characters, as expected, but for the inner array they are Control-C characters, the next delimiter in the list.
+		- Hive actually supports eight levels of delimiters, corresponding to ASCII codes 1, 2, ... 8, but you can override only the first three.
+		- Example
+			CREATE TABLE ...
+			ROW FORMAT DELIMITED
+			  FIELDS TERMINATED BY '\001'
+			  COLLECTION ITEMS TERMINATED BY '\002'
+			  MAP KEYS TERMINATED BY '\003'
+			  LINES TERMINATED BY '\n'
+			STORED AS TEXTFILE;
+		- Notice that the octal form of the delimiter characters can be used—001 for Control-A, for instance.
+		- Internally, Hive uses a SerDe called LazySimpleSerDe for this delimited format, along with the line-oriented MapReduce text input and output formats we saw in Chapter 8. The “lazy” prefix comes about because it deserializes fields lazily—only as they are accessed. However, it is not a compact format because fields are stored in a verbose textual format, so a Boolean value, for instance, is written as the literal string true or false.
+		- The simplicity of the format has a lot going for it, such as making it easy to process with other tools, including MapReduce programs or Streaming, but there are more compact and performant binary storage formats that you might consider using.
+	- Binary storage formats: Sequence files, Avro datafiles, Parquet files, RCFiles and ORCFiles
+		- Using a binary format is as simple as changing the STORED AS clause in the CREATE TABLE statement. In this case, the ROW FORMAT is not specified, since the format is controlled by the underlying binary file format.
+		- Binary formats can be divided into two categories: row-oriented formats and column-oriented formats. Generally speaking, column-oriented formats work well when queries access only a small number of columns in the table, whereas row-oriented formats are appropriate when a large number of columns of a single row are needed for processing at the same time.
+		- The two row-oriented formats supported natively in Hive are Avro datafiles and sequence files. Both are general-purpose, splittable, compressible formats; in addition, Avro supports schema evolution and multiple language bindings. From Hive 0.14.0, a table can be stored in Avro format using:
+			SET hive.exec.compress.output=true;
+			SET avro.output.codec=snappy;
+			CREATE TABLE ... STORED AS AVRO;
+		- Notice that compression is enabled on the table by setting the relevant properties.
+		- Similarly, you can use sequence files in Hive by using the declaration STORED AS SEQUENCEFILE. The properties for compression are same as MapReduce
+		- Hive has native support for the Parquet, RCFile, and ORCFile column-oriented binary formats. Here is an example of creating a copy of a table in Parquet format using CREATE TABLE...AS SELECT:
+			CREATE TABLE users_parquet STORED AS PARQUET AS SELECT * FROM users;
+	- Custom SerDe (RegexSerDe)
+		- Let’s see how to use a custom SerDe for loading data. We’ll use a contrib SerDe that uses a regular expression for reading the fixed-width station metadata from a text file:
+		- Usage
+			CREATE TABLE stations (usaf STRING, wban STRING, name STRING)
+			ROW FORMAT SERDE 'org.apache.hadoop.hive.contrib.serde2.RegexSerDe'
+			WITH SERDEPROPERTIES (
+			  "input.regex" = "(\\d{6}) (\\d{5}) (.{29}) .*"
+			);
+		-  populate the table, we use a LOAD DATA statement as before:
+			LOAD DATA LOCAL INPATH "input/ncdc/metadata/stations-fixed-width.txt" INTO TABLE stations;
+		- LOAD DATA copies or moves the files to Hive’s warehouse directory (in this case, it’s a copy because the source is the local filesystem). The table’s SerDe is not used for the load operation.
+		- When we retrieve data from the table, the SerDe is invoked for deserialization, as we can see from this simple query, which correctly parses the fields for each row:
+		- hive> SELECT * FROM stations LIMIT 4;
+			010000    99999    BOGUS NORWAY                 
+			010003    99999    BOGUS NORWAY                 
+			010010    99999    JAN MAYEN                    
+			010013    99999    ROST
+		- RegexSerDe can be useful for getting data into Hive, but due to its inefficiency should not be used for general-purpose storage. Consider copying the data into a binary storage format.
+- Storage Handlers
+	Storage handlers are used for storage systems that Hive cannot access natively, such as HBase. Storage handlers are specified using a STORED BY clause, instead of the ROW FORMAT and STORED AS clauses. For more information in the case of HBase, see https://cwiki.apache.org/confluence/display/Hive/HBaseIntegration.
+- Importing Data
+	- We’ve already seen how to use the LOAD DATA operation to import data into a Hive table (or partition) by copying or moving files to the table’s directory. You can also populate a table with data from another Hive table using an INSERT statement, or at creation time using the CTAS construct, which is an abbreviation used to refer to CREATE TABLE...AS SELECT.
+	- If you want to import data from a relational database directly into Hive, have a look at Sqoop, which is covered in Imported Data and Hive.
+	- Inserts:
+		- INSERT OVERWRITE TABLE target 
+			SELECT col1, col2
+  				FROM source;
+  		- For partitioned tables, you can specify the partition to insert into by supplying a PARTITION clause:
+  			INSERT OVERWRITE TABLE target
+				PARTITION (dt='2001-01-01')
+				SELECT col1, col2
+				  FROM source;
+		- You can specify the partition dynamically by determining the partition value from the SELECT statement:
+			INSERT OVERWRITE TABLE target
+			PARTITION (dt)
+			SELECT col1, col2, dt
+			  FROM source;
+		- From Hive 0.14.0, you can use the INSERT INTO TABLE ... VALUES statement for inserting a small collection of records specified in literal form.
+	- Multitable insert
+		- In HiveQL, you can turn the INSERT statement around and start with the FROM clause for the same effect:
+			- Example
+				FROM source
+				INSERT OVERWRITE TABLE target
+				  SELECT col1, col2;
+		- The reason for this syntax becomes clear when you see that it’s possible to have multiple INSERT clauses in the same query. This so-called multitable insert is more efficient than multiple INSERT statements because the source table needs to be scanned only once to produce the multiple, disjoint outputs.
+		- Here’s an example that computes various statistics over the weather dataset:
+			FROM records2
+			INSERT OVERWRITE TABLE stations_by_year
+			  SELECT year, COUNT(DISTINCT station)
+			  GROUP BY year 
+			INSERT OVERWRITE TABLE records_by_year
+			  SELECT year, COUNT(1)
+			  GROUP BY year
+			INSERT OVERWRITE TABLE good_records_by_year
+			  SELECT year, COUNT(1)
+			  WHERE temperature != 9999 AND quality IN (0, 1, 4, 5, 9)
+			  GROUP BY year;
+	- CREATE TABLE...AS SELECT
+		CREATE TABLE target
+		AS
+		SELECT col1, col2
+		FROM source;
+- Alter table
+	- Because Hive uses the schema on read approach, it’s flexible in permitting a table’s definition to change after the table has been created. The general caveat, however, is that in many cases, it is up to you to ensure that the data is changed to reflect the new structure.
+	- You can rename a table using the ALTER TABLE statement.
+		- ALTER TABLE source RENAME TO target;
+	- In addition to updating the table metadata, ALTER TABLE moves the underlying table directory so that it reflects the new name. In the current example, /user/hive/warehouse/source is renamed to /user/hive/warehouse/target. (An external table’s underlying directory is not moved; only the metadata is updated.)
+	- Hive allows you to change the definition for columns, add new columns, or even replace all existing columns in a table with a new set.
+- Dropping Tables
+	- The DROP TABLE statement deletes the data and metadata for a table. In the case of external tables, only the metadata is deleted; the data is left untouched.
+	- If you want to delete all the data in a table, but keep the table definition, use TRUNCATE TABLE. For example:
+		TRUNCATE TABLE my_table;
+	- This doesn’t work for external tables; instead use dfs -rmr (from the Hive shell) to remove the external table directory directly.
+	- if you want to create a new, empty table with the same schema as another table, then use the LIKE keyword:
+		CREATE TABLE new_table LIKE existing_table;		
+- Sorting and Aggregating data
+	- Sorting data in Hive can be achieved by using a standard ORDER BY clause. ORDER BY performs a parallel total sort of the input (like that described in Total Sort). When a globally sorted result is not required—and in many cases it isn’t—you can use Hive’s nonstandard extension, SORT BY, instead. SORT BY produces a sorted file per reducer.
+	- In some cases, you want to control which reducer a particular row goes to, typically so you can perform some subsequent aggregation. This is what Hive’s DISTRIBUTE BY clause does. Here’s an example to sort the weather dataset by year and temperature, in such a way to ensure that all the rows for a given year end up in the same reducer partition.
+		- hive> FROM records2
+	    > SELECT year, temperature
+	    > DISTRIBUTE BY year
+	    > SORT BY year ASC, temperature DESC;
+	- If the columns for SORT BY and DISTRIBUTE BY are the same, you can use CLUSTER BY as a shorthand for specifying both.
+- MapReduce Scripts
+	- Using an approach like Hadoop Streaming, the TRANSFORM, MAP, and REDUCE clauses make it possible to invoke an external script or program from Hive. Suppose we want to use a script to filter out rows that don’t meet some condition, such as the script which removes poor-quality readings.
+	- This script reads year,temprature and quality from system input and outputs year and temprature based on quality condition
+		#!/usr/bin/env python
+
+		import re
+		import sys
+
+		for line in sys.stdin:
+		  (year, temp, q) = line.strip().split()
+		  if (temp != "9999" and re.match("[01459]", q)):
+		    print "%s\t%s" % (year, temp)
+	- Below Hive query uses the above script and passes it records and collects its stdout for final output
+		hive> ADD FILE /Users/tom/book-workspace/hadoop-book/ch17-hive/
+		src/main/python/is_good_quality.py;
+		hive> FROM records2
+		    > SELECT TRANSFORM(year, temperature, quality)
+		    > USING 'is_good_quality.py'
+		    > AS year, temperature;
+Joins
+	- SELECT sales.*, things.*
+    > FROM sales JOIN things ON (sales.id = things.id); 
+ 	- Explain <query> should be used to understand how many map-reduce will be used, for even more detail use Explain Extended
+ 	- Hive also supports LEFT OUTER JOIN, RIGHT OUTER JOIN and FULL OUTER JOIN.
+ 	- Semi joins
+ 		- Example
+	 		SELECT *
+			FROM things
+			WHERE things.id IN (SELECT id from sales);
+		- Above query can be written as
+			SELECT *
+    		FROM things LEFT SEMI JOIN sales ON (sales.id = things.id);
+    	- There is a restriction that we must observe for LEFT SEMI JOIN queries: the right table (sales) may appear only in the ON clause. It cannot be referenced in a SELECT expression.
+    - To enable map-side joins use
+    	SET hive.optimize.bucketmapjoin=true;
+Subqueries
+	- A subquery is a SELECT statement that is embedded in another SQL statement. Hive has limited support for subqueries, permitting a subquery in the FROM clause of a SELECT statement, or in the WHERE clause in certain cases.
+	- Hive allows uncorrelated subqueries, where the subquery is a self-contained query referenced by an IN or EXISTS statement in the WHERE clause. Correlated subqueries, where the subquery references the outer query are not currently supported.
+	- 
+		SELECT station, year, AVG(max_temperature)
+		FROM (
+		  SELECT station, year, MAX(temperature) AS max_temperature
+		  FROM records2
+		  WHERE temperature != 9999 AND quality IN (0, 1, 4, 5, 9)
+		  GROUP BY station, year
+		) mt
+		GROUP BY station, year;
+Views:
+	- In Hive, a view is not materialized to disk when it is created; rather, the view’s SELECT statement is executed when the statement that refers to the view is run.
+	- We can use views to rework the query from the previous section for finding the mean maximum temperature for every year and weather station. First, let’s create a view for valid records, that is, records that have a particular quality value:
+		CREATE VIEW valid_records
+		AS
+		SELECT *
+		FROM records2
+		WHERE temperature != 9999 AND quality IN (0, 1, 4, 5, 9);
+	- Views in Hive are read-only, so there is no way to load or insert data into an underlying base table via a view.
+UDF
+	- There are three types of UDF in Hive: (regular) UDFs, user-defined aggregate functions (UDAFs), and user-defined table-generating functions (UDTFs). They differ in the numbers of rows that they accept as input and produce as output:
+		- A UDF operates on a single row and produces a single row as its output. Most functions, such as mathematical functions and string functions, are of this type.
+		- A UDAF works on multiple input rows and creates a single output row. Aggregate functions include such functions as COUNT and MAX.
+		- A UDTF operates on a single row and produces multiple rows—a table—as output.
+	- Table UDF
+		- Example, Create a table of arrays and then use explode
+			- CREATE TABLE arrays (x ARRAY<STRING>)
+			- hive> SELECT * FROM arrays;
+				["a","b"]
+				["c","d","e"]
+			- hive> SELECT explode(x) AS y FROM arrays;
+				a
+				b
+				c
+				d
+				e
+		- SELECT statements using UDTFs have some restrictions (for example, they cannot retrieve additional column expressions), which make them less useful in practice. For this reason, Hive supports LATERAL VIEW queries ( https://cwiki.apache.org/confluence/display/Hive/LanguageManual+LateralView. )
+- Writing UDF
+	package com.hadoopbook.hive;
+
+	import org.apache.commons.lang.StringUtils;
+	import org.apache.hadoop.hive.ql.exec.UDF;
+	import org.apache.hadoop.io.Text;
+
+	public class Strip extends UDF {
+	  private Text result = new Text();
+	  
+	  public Text evaluate(Text str) {
+	    if (str == null) {
+	      return null;
+	    }
+	    result.set(StringUtils.strip(str.toString()));
+	    return result;
+	  }  public Text evaluate(Text str, String stripChars) {
+	    if (str == null) {
+	      return null;
+	    }
+	    result.set(StringUtils.strip(str.toString(), stripChars));
+	    return result;
+	  }
+	}
+	- A UDF must satisfy the following two properties:
+		A UDF must be a subclass of org.apache.hadoop.hive.ql.exec.UDF.
+		A UDF must implement at least one evaluate() method.
+	- The evaluate() method is not defined by an interface, since it may take an arbitrary number of arguments, of arbitrary types, and it may return a value of arbitrary type. Hive introspects the UDF to find the evaluate() method that matches the Hive function that was invoked.
+	- By using Text, we can take advantage of object reuse, which can bring efficiency savings, and so is preferred in general.
+	- To use the UDF in Hive, we first need to package the compiled Java class in a JAR file. 
+	- Next, we register the function in the metastore and give it a name using the CREATE FUNCTION statement:
+		CREATE FUNCTION strip AS 'com.hadoopbook.hive.Strip'
+			USING JAR '/path/to/hive-examples.jar';
+	- The UDF is now ready to be used, just like a built-in function:
+		hive> SELECT strip('  bee  ') FROM dummy;
+		bee
+	- Notice that the UDF’s name is not case-sensitive:
+		hive> SELECT STRIP('  bee  ') FROM dummy;
+		bee
+	- If you want to remove the function, use the DROP FUNCTION statement:
+		DROP FUNCTION strip;
+	- It’s also possible to create a function for the duration of the Hive session, so it is not persisted in the metastore, using the TEMPORARY keyword:
+		ADD JAR /path/to/hive-examples.jar;
+		CREATE TEMPORARY FUNCTION strip AS 'com.hadoopbook.hive.Strip';
+	- When using temporary functions it may be useful to create a .hiverc file in your home directory containing the commands to define your UDFs. The file will be automatically run at the beginning of each Hive session.
+Writing a UDAF
+	- An aggregate function is more difficult to write than a regular UDF. Values are aggregated in chunks (potentially across many tasks), so the implementation has to be capable of combining partial aggregations into a final result. The code to achieve this is best explained by example, so let’s look at the implementation of a simple UDAF for calculating the maximum of a collection of integers.
+		package com.hadoopbook.hive;
+
+		import org.apache.hadoop.hive.ql.exec.UDAF;
+		import org.apache.hadoop.hive.ql.exec.UDAFEvaluator;
+		import org.apache.hadoop.io.IntWritable;
+
+		public class Maximum extends UDAF {
+
+		    public static class MaximumIntUDAFEvaluator implements UDAFEvaluator {
+
+		        private IntWritable result;
+
+		        public void init() {
+		            result = null;
+		        }
+
+		        public boolean iterate(IntWritable value) {
+		            if (value == null) {
+		                return true;
+		            }
+		            if (result == null) {
+		                result = new IntWritable(value.get());
+		            } else {
+		                result.set(Math.max(result.get(), value.get()));
+		            }
+		            return true;
+		        }
+
+		        public IntWritable terminatePartial() {
+		            return result;
+		        }
+
+		        public boolean merge(IntWritable other) {
+		            return iterate(other);
+		        }
+
+		        public IntWritable terminate() {
+		            return result;
+		        }
+		    }
+		}
+	- The class structure is slightly different from the one for UDFs. A UDAF must be a subclass of org.apache.hadoop.hive.ql.exec.UDAF (note the “A” in UDAF) and contain one or more nested static classes implementing org.apache.hadoop.hive.ql.exec.UDAFEvaluator. In this example, there is a single nested class, MaximumIntUDAFEvaluator, but we could add more evaluators such as MaximumLongUDAFEvaluator, MaximumFloatUDAFEvaluator, and so on, to provide overloaded forms of the UDAF for finding the maximum of a collection of longs, floats, and so on.
+	An evaluator must implement five methods:
+		1. init()
+			The init() method initializes the evaluator and resets its internal state. In MaximumIntUDAFEvaluator, we set the IntWritable object holding the final result to null. We use null to indicate that no values have been aggregated yet, which has the desirable effect of making the maximum value of an empty set NULL.
+		2. iterate()
+			The iterate() method is called every time there is a new value to be aggregated. The evaluator should update its internal state with the result of performing the aggregation. The arguments that iterate() takes correspond to those in the Hive function from which it was called. In this example, there is only one argument. The value is first checked to see whether it is null, and if it is, it is ignored. Otherwise, the result instance variable is set to value’s integer value (if this is the first value that has been seen) or set to the larger of the current result and value (if one or more values have already been seen). We return true to indicate that the input value was valid.
+		3. terminatePartial()
+			The terminatePartial() method is called when Hive wants a result for the partial aggregation. The method must return an object that encapsulates the state of the aggregation. In this case, an IntWritable suffices because it encapsulates either the maximum value seen or null if no values have been processed. 
+			Note: terminatePartial() can be called just after init()
+		4. merge()
+			The merge() method is called when Hive decides to combine one partial aggregation with another. The method takes a single object whose type must correspond to the return type of the terminatePartial() method. In this example, the merge() method can simply delegate to the iterate() method because the partial aggregation is represented in the same way as a value being aggregated. This is not generally the case, and the method should implement the logic to combine the evaluator’s state with the state of the partial aggregation. 
+		5. terminate()
+			The terminate() method is called when the final result of the aggregation is needed. The evaluator should return its state as a value. In this case, we return the result instance variable.
+	Run the function:
+		hive> CREATE TEMPORARY FUNCTION maximum AS 'com.hadoopbook.hive.Maximum';
+		hive> SELECT maximum(temperature) FROM records;
+UDAF for average:
+	package com.hadoopbook.hive;
+
+	import org.apache.hadoop.hive.ql.exec.UDAF;
+	import org.apache.hadoop.hive.ql.exec.UDAFEvaluator;
+	import org.apache.hadoop.hive.serde2.io.DoubleWritable;
+
+	public class Mean extends UDAF {
+
+	  public static class MeanDoubleUDAFEvaluator implements UDAFEvaluator {
+	    public static class PartialResult {
+	      double sum;
+	      long count;
+	    }
+	    
+	    private PartialResult partial;
+
+	    public void init() {
+	      partial = null;
+	    }
+
+	    public boolean iterate(DoubleWritable value) {
+	      if (value == null) {
+	        return true;
+	      }
+	      if (partial == null) {
+	        partial = new PartialResult();
+	      }
+	      partial.sum += value.get();
+	      partial.count++;
+	      return true;
+	    }
+
+	    public PartialResult terminatePartial() {
+	      return partial;
+	    }
+
+	    public boolean merge(PartialResult other) {
+	      if (other == null) {
+	        return true;
+	      }
+	      if (partial == null) {
+	        partial = new PartialResult();
+	      }
+	      partial.sum += other.sum;
+	      partial.count += other.count;
+	      return true;
+	    }
+
+	    public DoubleWritable terminate() {
+	      if (partial == null) {
+	        return null;
+	      }
+	      return new DoubleWritable(partial.sum / partial.count);
+	    }
+	  }
+	}
