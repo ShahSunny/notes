@@ -1,0 +1,609 @@
+- Pig raises the level of abstraction for processing large datasets. MapReduce allows you, as the programmer, to specify a map function followed by a reduce function, but working out how to fit your data processing into this pattern, which often requires multiple MapReduce stages, can be a challenge. With Pig, the data structures are much richer, typically being multivalued and nested, and the set of transformations you can apply to the data are much more powerful. 
+- Pig is made up of two pieces:
+	1. The language used to express data flows, called Pig Latin.
+	2. The execution environment to run Pig Latin programs. There are currently two environments: local execution in a single JVM and distributed execution on a Hadoop cluster.
+- Pig was designed to be extensible. Virtually all parts of the processing path are customizable: loading, storing, filtering, grouping, and joining can all be altered by user-defined functions (UDFs). These functions operate on Pig’s nested data model, so they can integrate very deeply with Pig’s operators. As another benefit, UDFs tend to be more reusable than the libraries developed for writing MapReduce programs.
+- In some cases, Pig doesn’t perform as well as programs written in MapReduce. However, the gap is narrowing with each release, as the Pig team implements sophisticated algorithms for applying Pig’s relational operators. It’s fair to say that unless you are willing to invest a lot of effort optimizing Java MapReduce code, writing queries in Pig Latin will save you time.
+- Execution Types
+	- Pig has two execution types or modes: local mode and MapReduce mode. Execution modes for Apache Tez and Spark are both under development. Both promise significant performance gains over MapReduce mode.
+	- Local mode
+		- In local mode, Pig runs in a single JVM and accesses the local filesystem. This mode is suitable only for small datasets and when trying out Pig.
+		- The execution type is set using the -x or -exectype option. To run in local mode, set the option to local:
+			pig -x local
+	- MapReduce mode
+		- In MapReduce mode, Pig translates queries into MapReduce jobs and runs them on a Hadoop cluster. The cluster may be a pseudo- or fully distributed cluster. MapReduce mode (with a fully distributed cluster) is what you use when you want to run Pig on large datasets.
+		- To use MapReduce mode, you first need to check that the version of Pig you downloaded is compatible with the version of Hadoop you are using. Pig releases will only work against particular versions of Hadoop; this is documented in the release notes.
+		- Pig honors the HADOOP_HOME environment variable for finding which Hadoop client to run. However, if it is not set, Pig will use a bundled copy of the Hadoop libraries. Note that these may not match the version of Hadoop running on your cluster, so it is best to explicitly set HADOOP_HOME.
+		- Next, you need to point Pig at the cluster’s namenode and resource manager. If the installation of Hadoop at HADOOP_HOME is already configured for this, then there is nothing more to do. Otherwise, you can set HADOOP_CONF_DIR to a directory containing the Hadoop site file (or files) that define fs.defaultFS, yarn.resourcemanager.address, and mapreduce.framework.name (the latter should be set to yarn).
+		- Alternatively, you can set these properties in the pig.properties file in Pig’s conf directory (or the directory specified by PIG_CONF_DIR). 		
+		- In MapReduce mode you can optionally enable auto-local mode (by setting pig.auto.local.enabled to true), which is an optimization that runs small jobs locally if the input is less than 100MB (set by pig.auto.local.input.maxbytes, default 100,000,000) and no more than one reducer is being used.
+- Running Pig Programs
+	- There are three ways of executing Pig programs, all of which work in both local and MapReduce mode:
+	- Script
+		Pig can run a script file that contains Pig commands. For example, "pig script.pig" command runs the commands in the local file script.pig. Alternatively, for very short scripts, you can use the -e option to run a script specified as a string on the command line.
+	- Grunt
+		Grunt is an interactive shell for running Pig commands. Grunt is started when no file is specified for Pig to run and the -e option is not used. It is also possible to run Pig scripts from within Grunt using run and exec.
+	- Embedded
+		You can run Pig programs from Java using the PigServer class, much like you can use JDBC to run SQL programs from Java. For programmatic access to Grunt, use PigRunner.
+- Pig Latin Editors
+	- There are Pig Latin syntax highlighters available for a variety of editors, including Eclipse, IntelliJ IDEA, Vim, Emacs, and TextMate. Details are available on the Pig wiki.
+	- Many Hadoop distributions come with the Hue web interface that has a Pig script editor and launcher.
+- Pig vs RDBMS
+	- The most significant difference is that Pig Latin is a data flow programming language, whereas SQL is a declarative programming language. In other words, a Pig Latin program is a step-by-step set of operations on an input relation, in which each step is a single transformation. By contrast, SQL statements are a set of constraints that, taken together, define the output. In many ways, programming in Pig Latin is like working at the level of an RDBMS query planner, which figures out how to turn a declarative statement into a system of steps.
+	- RDBMSs store data in tables, with tightly predefined schemas. Pig is more relaxed about the data that it processes: you can define a schema at runtime, but it’s optional. Essentially, it will operate on any source of tuples (although the source should support being read in parallel, by being in multiple files, for example), where a UDF is used to read the tuples from their raw representation.The most common representation is a text file with tab-separated fields, and Pig provides a built-in load function for this format. Unlike a traditional database, there is no data import process to load the data into the RDBMS. The data is loaded from the filesystem (usually HDFS) as the first step in the processing.
+	- Pig’s support for complex, nested data structures differentiates it from SQL, which operates on flatter data structures. Also, Pig’s ability to use UDFs and streaming operators that are tightly integrated with the language and Pig’s nested data structures makes Pig Latin more customizable than most SQL dialects.
+	- RDBMSs have several features to support online, low-latency queries, such as transactions and indexes, that are absent in Pig. Pig does not support random reads or queries in the order of tens of milliseconds. Nor does it support random writes to update small portions of data; all writes are bulk streaming writes, just like MapReduce.
+	- Pig is able to work with Hive tables using HCatalog
+- Pig Example
+	-- max_temp.pig: Finds the maximum temperature by year
+	records = LOAD 'input/ncdc/micro-tab/sample.txt'  AS (year:chararray, temperature:int, quality:int);
+	filtered_records = FILTER records BY temperature != 9999 AND quality IN (0, 1, 4, 5, 9);
+	grouped_records = GROUP filtered_records BY year;
+	max_temp = FOREACH grouped_records GENERATE group,MAX(filtered_records.temperature);
+	DUMP max_temp;
+
+	- We can also see the structure of a relation—the relation’s schema—using the DESCRIBE operator on the relation’s alias:
+		grunt> DESCRIBE records;
+		records: {year: chararray,temperature: int,quality: int}
+	- 
+		grunt> DUMP grouped_records;
+			(1949,{(1949,78,1),(1949,111,1)})
+			(1950,{(1950,-11,1),(1950,22,1),(1950,0,1)})
+
+		grunt> DESCRIBE grouped_records;
+			grouped_records: {group: chararray,filtered_records: {year: chararray,
+			temperature: int,quality: int}}
+		
+		grunt> DUMP max_temp;
+			(1949,111)
+			(1950,22)
+- Seeing the computation process on data
+	- Illustrate command takes a sample dataset and performs operations on it to understand the process
+		grunt> ILLUSTRATE max_temp;
+		-------------------------------------------------------------------------------
+		| records     | year:chararray      | temperature:int      | quality:int      | 
+		-------------------------------------------------------------------------------
+		|             | 1949                | 78                   | 1                | 
+		|             | 1949                | 111                  | 1                | 
+		|             | 1949                | 9999                 | 1                | 
+		-------------------------------------------------------------------------------
+		---------------------------------------------------------------------------------
+		| filtered_records   | year:chararray    | temperature:int    | quality:int     | 
+		---------------------------------------------------------------------------------
+		|                    | 1949              | 78                 | 1               | 
+		|                    | 1949              | 111                | 1               | 
+		---------------------------------------------------------------------------------
+		--------------------------------------------------------------------------------------
+		| grouped_records  | group:chararray   | filtered_records:bag{:tuple(year:chararray, |
+		                                                       temperature:int,quality:int)} |
+		--------------------------------------------------------------------------------------
+		|                  | 1949              | {(1949, 78, 1), (1949, 111, 1)}             |
+		--------------------------------------------------------------------------------------
+		---------------------------------------------------
+		| max_temp     | group:chararray      | :int      | 
+		---------------------------------------------------
+		|              | 1949                 | 111       | 
+		---------------------------------------------------
+- Pig Latin
+	- Statements are usually terminated with a semicolon
+	- Pig Latin has two forms of comments. Double hyphens are single-line comments. Everything from the first hyphen to the end of the line is ignored by the Pig Latin interpreter and multiple /* */
+	-  If there are syntax errors or other (semantic) problems, such as undefined aliases, the interpreter will halt and display an error message.
+	- When the Pig Latin interpreter sees the first line containing the LOAD statement, it confirms that it is syntactically and semantically correct, and adds it to the logical plan, but it does not load the data from the file (or even check whether the file exists). Indeed, where would it load it? Into memory? Even if it did fit into memory, what would it do with the data? Perhaps not all the input data is needed (because later statements filter it, for example), so it would be pointless to load it. The point is that it makes no sense to start any processing until the whole flow is defined. Similarly, Pig validates the GROUP and FOREACH...GENERATE statements, and adds them to the logical plan without executing them. The trigger for Pig to start execution is the DUMP statement. At that point, the logical plan is compiled into a physical plan and executed.
+	- Because DUMP is a diagnostic tool, it will always trigger execution. However, the STORE command is different. In interactive mode, STORE acts like DUMP and will always trigger execution (this includes the run command), but in batch mode it will not (this includes the exec command). The reason for this is efficiency. In batch mode, Pig will parse the whole script to see whether there are any optimizations that could be made to limit the amount of data to be written to or read from disk. Consider the following simple example:
+		A = LOAD 'input/pig/multiquery/A';
+		B = FILTER A BY $1 == 'banana';
+		C = FILTER A BY $1 != 'banana';
+		STORE B INTO 'output/b';
+		STORE C INTO 'output/c';
+	- Relations B and C are both derived from A, so to save reading A twice, Pig can run this script as a single MapReduce job by reading A once and writing two output files from the job, one for each of B and C. This feature is called multiquery execution.
+	- In previous versions of Pig that did not have multiquery execution, each STORE statement in a script run in batch mode triggered execution, resulting in a job for each STORE statement. It is possible to restore the old behavior by disabling multiquery execution with the -M or -no_multiquery option to pig.
+	- The physical plan that Pig prepares is a series of MapReduce jobs, which in local mode Pig runs in the local JVM, and in MapReduce mode Pig runs on a Hadoop cluster.
+	- You can see the logical and physical plans created by Pig using the EXPLAIN command on a relation (EXPLAIN max_temp; for example).
+	- EXPLAIN will also show the MapReduce plan, which shows how the physical operators are grouped into MapReduce jobs. This is a good way to find out how many MapReduce jobs Pig will run for your query.
+	- Pig Latin provides three statements—REGISTER, DEFINE, and IMPORT—that make it possible to incorporate macros and user-defined functions into Pig scripts
+		Statement	Description
+		REGISTER	Registers a JAR file with the Pig runtime
+		DEFINE	Creates an alias for a macro, UDF, streaming script, or command specification
+		IMPORT	Import macros defined in a separate file into a script
+	- Because they do not process relations, commands are not added to the logical plan; instead, they are executed immediately. Pig provides commands to interact with Hadoop filesystems (which are very handy for moving data around before or after processing with Pig) and MapReduce, as well as a few utility commands
+		- Filesystem commands
+			cat	Prints the contents of one or more files
+			cd	Changes the current directory
+			copyFromLocal	Copies a local file or directory to a Hadoop filesystem
+			copyToLocal	Copies a file or directory on a Hadoop filesystem to the local filesystem
+			cp	Copies a file or directory to another directory
+			fs	Accesses Hadoop’s filesystem shell
+				- You can access all of the Hadoop filesystem shell commands using Pig’s fs command. For example, fs -ls will show a file listing, and fs -help will show help on all the available commands.
+			ls	Lists files
+			mkdir	Creates a new directory
+			mv	Moves a file or directory to another directory
+			pwd	Prints the path of the current working directory
+			rm	Deletes a file or directory
+			rmf	Forcibly deletes a file or directory (does not fail if the file or directory does not exist)
+		- MapReduce Commands
+			kill	Kills a MapReduce job
+		- Utility commands
+			clear		Clears the screen in Grunt
+			exec		Runs a script in a new Grunt shell in batch mode
+			help		Shows the available commands and options
+			history		Prints the query statements run in the current Grunt session
+			quit (\q)	Exits the interpreter
+			run			Runs a script within the existing Grunt shell
+				- There are two commands in Table 16-4 for running a Pig script, exec and run. The difference is that exec runs the script in batch mode in a new Grunt shell, so any aliases defined in the script are not accessible to the shell after the script has completed. On the other hand, when running a script with run, it is as if the contents of the script had been entered manually, so the command history of the invoking shell contains all the statements from the script. Multiquery execution, where Pig executes a batch of statements in one go (see Multiquery Execution), is used only by exec, not run.
+			set			Sets Pig options and MapReduce job properties
+				- The debug option is used to turn debug logging on or off from within a script (you can also control the log level when launching Pig, using the -d or -debug option):
+					grunt> set debug on
+			sh			Run a shell command from within Grunt
+	Types
+		Boolean	boolean	True/false value	true
+		int			32-bit 				signed integer										1
+		long		64-bit 				signed integer										1L
+		float		32-bit 				floating-point number								1.0F
+		double		64-bit 				floating-point number								1.0
+		biginteger	Arbitrary-precision integer												'10000000000'
+		bigdecimal	Arbitrary-precision signed decimal number								'0.110001000000000000000001'
+						
+		Text		chararray			Character array in UTF-16 format					'a'
+		datetime	Date and time with timezone	Not supported, use ToDate built-in function
+		
+		tuple							Sequence of fields of any type						(1,'pomegranate')
+		bag								An unordered collection of tuples, possibly with duplicates	{(1,'pomegranate'),(2)}
+		map								key-value pairs; keys->character arrays, values->any type	['a'#'pomegranate']
+		
+		- The complex types are usually loaded from files or constructed using relational operators. Be aware, however, that the literal form in is used when a constant value is created from within a Pig Latin program. The raw form in a file is usually different when using the standard PigStorage loader. For example, the representation in a file of the bag in would be {(1,pomegranate),(2)} (note the lack of quotation marks), and with a suitable schema, this would be loaded as a relation with a single field and row, whose value was the bag.
+	- Pig provides the built-in functions TOTUPLE, TOBAG and TOMAP, which are used for turning expressions into tuples, bags, and maps.
+	- Although relations and bags are conceptually the same (an unordered collection of tuples), in practice Pig treats them slightly differently. A relation is a top-level construct, whereas a bag has to be contained in a relation. Normally you don’t have to worry about this, but there are a few restrictions that can trip up the uninitiated. For example, it’s not possible to create a relation from a bag literal. So the following statement fails:
+		A = {(1,2),(3,4)}; -- Error
+	- The simplest workaround in this case is to load the data from a file using the LOAD statement.
+Schemas
+	- A relation in Pig may have an associated schema, which gives the fields in the relation names and types. We’ve seen how an AS clause in a LOAD statement is used to attach a schema to a relation:
+		grunt> records = LOAD 'input/ncdc/micro-tab/sample.txt' AS (year:int, temperature:int, quality:int);
+		grunt> DESCRIBE records;
+			records: {year: int,temperature: int,quality: int}
+	- It’s possible to omit type declarations completely, too:
+		grunt> records = LOAD 'input/ncdc/micro-tab/sample.txt' AS (year, temperature, quality);
+		grunt> DESCRIBE records;
+		records: {year: bytearray,temperature: bytearray,quality: bytearray}
+			- In this case, we have specified only the names of the fields in the schema: year, temperature, and quality. The types default to bytearray, the most general type, representing a binary string.
+	- Schema is entirely optional and can be omitted by not specifying an AS clause
+		grunt> records = LOAD 'input/ncdc/micro-tab/sample.txt';
+		grunt> DESCRIBE records;
+		Schema for records unknown.
+			- Fields in a relation with no schema can be referenced using only positional notation: $0 refers to the first field in a relation, $1 to the second, and so on. Their types default to bytearray:
+		grunt> projected_records = FOREACH records GENERATE $0, $1, $2;
+		grunt> DUMP projected_records;
+		(1950,0,1)
+		(1950,22,1)
+		(1950,-11,1)
+		(1949,111,1)
+		(1949,78,1)
+		grunt> DESCRIBE projected_records;
+		projected_records: {bytearray,bytearray,bytearray}
+			- Although it can be convenient not to assign types to fields (particularly in the first stages of writing a query), doing so can improve the clarity and efficiency of Pig Latin programs and is generally recommended.
+
+Using Hive tables with HCatalog
+	- Declaring a schema as a part of the query is flexible but doesn’t lend itself to schema reuse. A set of Pig queries over the same input data will often have the same schema repeated in each query. If the query processes a large number of fields, this repetition can become hard to maintain.
+	- HCatalog (which is a component of Hive) solves this problem by providing access to Hive’s metastore, so that Pig queries can reference schemas by name, rather than specifying them in full each time. For example, after running through An Example to load data into a Hive table called records, Pig can access the table’s schema and data as follows:
+		% pig -useHCatalog
+		grunt> records = LOAD 'records' USING org.apache.hcatalog.pig.HCatLoader();
+		grunt> DESCRIBE records;
+		records: {year: chararray,temperature: int,quality: int}
+		grunt> DUMP records;
+		(1950,0,1)
+		(1950,22,1)
+		(1950,-11,1)
+		(1949,111,1)
+		(1949,78,1)
+Validation and nulls
+	- An SQL database will enforce the constraints in a table’s schema at load time; for example, trying to load a string into a column that is declared to be a numeric type will fail. In Pig, if the value cannot be cast to the type declared in the schema, it will substitute a null value. Let’s see how this works when we have input for the weather data, which has an “e” character in place of an integer:
+	- Pig handles the corrupt line by producing a null for the offending value, which is displayed as the absence of a value when dumped to screen (and also when saved using STORE).
+	- Pig produces a warning for the invalid field (not shown here) but does not halt its processing. For large datasets, it is very common to have corrupt, invalid, or merely unexpected data, and it is generally infeasible to incrementally fix every unparsable record. Instead, we can pull out all of the invalid records in one go, so we can take action on them, perhaps by fixing our program (because they indicate that we have made a mistake) or by filtering them out (because the data is genuinely unusable):
+		grunt> corrupt_records = FILTER records BY temperature is null;
+		grunt> DUMP corrupt_records;
+		(1950,,1)
+	- We can find the number of corrupt records using the following idiom for counting the number of rows in a relation:
+		grunt> grouped = GROUP corrupt_records ALL;
+		grunt> all_grouped = FOREACH grouped GENERATE group, COUNT(corrupt_records);
+		grunt> DUMP all_grouped;
+		(all,1)
+	- Another useful technique is to use the SPLIT operator to partition the data into “good” and “bad” relations, which can then be analyzed separately:
+		grunt> SPLIT records INTO good_records IF temperature is not null, bad_records OTHERWISE;
+	- If temperature’s type was left undeclared, the corrupt data cannot be detected easily, since it doesn’t surface as a null:
+		grunt> records = LOAD 'input/ncdc/micro-tab/sample_corrupt.txt' AS (year:chararray, temperature, quality:int);
+		grunt> DUMP records;
+		(1950,0,1)
+		(1950,22,1)
+		(1950,e,1)
+		(1949,111,1)
+		(1949,78,1)
+		grunt> filtered_records = FILTER records BY temperature != 9999 AND quality IN (0, 1, 4, 5, 9);
+		grunt> grouped_records = GROUP filtered_records BY year;
+		grunt> max_temp = FOREACH grouped_records GENERATE group, MAX(filtered_records.temperature);
+		grunt> DUMP max_temp;
+		(1949,111.0)
+		(1950,22.0)
+	- What happens in this case is that the temperature field is interpreted as a bytearray, so the corrupt field is not detected when the input is loaded. When passed to the MAX function, the temperature field is cast to a double, since MAX works only with numeric types. The corrupt field cannot be represented as a double, so it becomes a null, which MAX silently ignores. The best approach is generally to declare types for your data on loading and look for missing or corrupt values in the relations themselves before you do your main processing.
+	- Sometimes corrupt data shows up as smaller tuples because fields are simply missing. You can filter these out by using the SIZE function as follows:
+		grunt> A = LOAD 'input/pig/corrupt/missing_fields';
+		grunt> DUMP A;
+		(2,Tie)
+		(4,Coat)
+		(3)
+		(1,Scarf)
+		grunt> B = FILTER A BY SIZE(TOTUPLE(*)) > 1;
+		grunt> DUMP B;
+		(2,Tie)
+		(4,Coat)
+		(1,Scarf)
+Functions
+	Functions in Pig come in four types:
+		Eval function
+			A function that takes one or more expressions and returns another expression. An example of a built-in eval function is MAX, which returns the maximum value of the entries in a bag. Some eval functions are aggregate functions, which means they operate on a bag of data to produce a scalar value; MAX is an example of an aggregate function. Furthermore, many aggregate functions are algebraic, which means that the result of the function may be calculated incrementally. In MapReduce terms, algebraic functions make use of the combiner and are much more efficient to calculate. MAX is an algebraic function, whereas a function to calculate the median of a collection of values is an example of a function that is not algebraic.
+		Filter function
+			A special type of eval function that returns a logical Boolean result. As the name suggests, filter functions are used in the FILTER operator to remove unwanted rows. They can also be used in other relational operators that take Boolean conditions and, in general, expressions using Boolean or conditional expressions. An example of a built-in filter function is IsEmpty, which tests whether a bag or a map contains any items.
+		Load function
+			A function that specifies how to load data into a relation from external storage.
+		Store function
+			A function that specifies how to save the contents of a relation to external storage. Often, load and store functions are implemented by the same type. For example, PigStorage, which loads data from delimited text files, can store data in the same format.
+	- Pig comes with a collection of built-in functions. Here are the most-used ones
+		Eval	
+			AVG				Calculates the average (mean) value of entries in a bag.
+		 	CONCAT			Concatenates byte arrays or character arrays together.
+		 	COUNT			Calculates the number of non-null entries in a bag.
+		 	COUNT_STAR		Calculates the number of entries in a bag, including those that are null.
+		 	DIFF			Calculates the set difference of two bags. 
+		 	MAX				Calculates the maximum value of entries in a bag.
+		 	MIN				Calculates the minimum value of entries in a bag.
+		 	SIZE			Calculates the size of a type. The size of numeric types is always one; for character arrays, it is the number of characters; for byte arrays, the number of bytes; and for containers (tuple, bag, map), it is the number of entries.
+		 	SUM				Calculates the sum of the values of entries in a bag.
+		 	TOBAG			Converts one or more expressions to individual tuples, which are then put in a bag. A synonym for ()
+		 	TOKENIZE		Tokenizes a character array into a bag of its constituent words.
+		 	TOMAP			Converts an even number of expressions to a map of key-value pairs. A synonym for []
+		 	TOP				Calculates the top n tuples in a bag.
+		 	TOTUPLE			Converts one or more expressions to a tuple. A synonym for {}
+		Filter	
+			IsEmpty			Tests whether a bag or map is empty.
+		Load/Store	
+			PigStorage		Loads or stores relations using a field-delimited text format. Each line is broken into fields using a configurable field delimiter (defaults to a tab character) to be stored in the tuple’s fields. It is the default storage when none is specified.[a]
+		 	TextLoader		Loads relations from a plain-text format. Each line corresponds to a tuple whose single field is the line of text.
+		 	JsonLoader	 	JsonStorage	Loads or stores relations from or to a (Pig-defined) JSON format. Each tuple is stored on one line.
+		 	AvroStorage		Loads or stores relations from or to Avro datafiles.
+		 	ParquetLoader	ParquetStorer	Loads or stores relations from or to Parquet files.
+		 	OrcStorage		Loads or stores relations from or to Hive ORCFiles.
+		 	HBaseStorage	Loads or stores relations from or to HBase tables.
+		 - The default storage can be changed by setting pig.default.load.func and pig.default.store.func to the fully-qualified load and store function classnames.
+Other libraries
+	- If the function you need is not available, you can write your own user-defined function (or UDF for short). This is explained in User-Defined Functions. Before you do that, however, have a look in the Piggy Bank, a library of Pig functions shared by the Pig community, and distributed as a part of Pig. For example, there are load and store functions in the Piggy Bank for CSV files, Hive RCFiles, sequence files, and XML files. The Piggy Bank JAR file comes with Pig, and you can use it with no further configuration. Pig’s API documentation includes a list of functions provided by the Piggy Bank.
+	- Apache DataFu is a rich library of Pig UDFs. In addition to general utility functions, it includes functions for computing basic statistics, performing sampling and estimation, hashing, and working with web data (sessionization, link analysis).
+
+Macros:
+	- Macros provide a way to package reusable pieces of Pig Latin code from within Pig Latin itself. For example, we can extract the part of our Pig Latin program that performs grouping on a relation and then finds the maximum value in each group by defining a macro as follows:
+		DEFINE max_by_group(X, group_key, max_field) RETURNS Y {
+		  A = GROUP $X by $group_key;
+		  $Y = FOREACH A GENERATE group, MAX($X.$max_field);
+		};
+	- Macro can be used as follow
+		records = LOAD 'input/ncdc/micro-tab/sample.txt'
+		  AS (year:chararray, temperature:int, quality:int);
+		filtered_records = FILTER records BY temperature != 9999 AND
+		  quality IN (0, 1, 4, 5, 9);
+		max_temp = max_by_group(filtered_records, year, temperature);
+		DUMP max_temp
+	- At runtime, Pig will expand the macro using the macro definition. You can get Pig to perform macro expansion only (without executing the script) by passing the -dryrun argument to pig.
+	- To foster reuse, macros can be defined in separate files to Pig scripts, in which case they need to be imported into any script that uses them. An import statement looks like this:
+		IMPORT 'max_temp.macro';
+User-Defined Functions:
+	- UDFs can be written in Java, Python, JavaScript, Ruby, or Groovy.
+	- A Filter UDF
+		- Let’s demonstrate by writing a filter function for filtering out weather records that do not have a temperature quality reading of satisfactory (or better). The idea is to change this line:
+			filtered_records = FILTER records BY temperature != 9999 AND quality IN (0, 1, 4, 5, 9);
+		- to:
+			filtered_records = FILTER records BY temperature != 9999 AND isGood(quality);
+		- This achieves two things: it makes the Pig script a little more concise, and it encapsulates the logic in one place so that it can be easily reused in other scripts. If we were just writing an ad hoc query, we probably wouldn’t bother to write a UDF. It’s when you start doing the same kind of processing over and over again that you see opportunities for reusable UDFs.
+		- Filter UDFs are all subclasses of FilterFunc, which itself is a subclass of EvalFunc. EvalFunc looks like the following class:
+			public abstract class EvalFunc<T> {
+			  public abstract T exec(Tuple input) throws IOException;
+			}
+		- Implementation of isGood func
+
+			package com.hadoopbook.pig;
+
+			import java.io.IOException;
+			import java.util.ArrayList;
+			import java.util.List;
+
+			import org.apache.pig.FilterFunc;
+			 
+			import org.apache.pig.backend.executionengine.ExecException;
+			import org.apache.pig.data.DataType;
+			import org.apache.pig.data.Tuple;
+			import org.apache.pig.impl.logicalLayer.FrontendException;
+
+			public class IsGoodQuality extends FilterFunc {
+
+			  @Override
+			  public Boolean exec(Tuple tuple) throws IOException {
+			    if (tuple == null || tuple.size() == 0) {
+			      return false;
+			    }
+			    try {
+			      Object object = tuple.get(0);
+			      if (object == null) {
+			        return false;
+			      }
+			      int i = (Integer) object;
+			      return i == 0 || i == 1 || i == 4 || i == 5 || i == 9;
+			    } catch (ExecException e) {
+			      throw new IOException(e);
+			    }
+			  }
+			 
+			}
+		- To use the new function, we first compile it and package it in a JAR file. Then we tell Pig about the JAR file with the REGISTER operator, which is given the local path to the filename (and is not enclosed in quotes):
+			grunt> REGISTER pig-examples.jar;
+		- Finally, we can invoke the function:
+			grunt> filtered_records = FILTER records BY temperature != 9999 AND com.hadoopbook.pig.IsGoodQuality(quality);
+		- Pig resolves function calls by treating the function’s name as a Java classname and attempting to load a class of that name. (This, incidentally, is why function names are case-sensitive: because Java classnames are.) When searching for classes, Pig uses a classloader that includes the JAR files that have been registered. When running in distributed mode, Pig will ensure that your JAR files get shipped to the cluster.
+		- Resolution of built-in functions proceeds in the same way, except for one difference: Pig has a set of built-in package names that it searches, so the function call does not have to be a fully qualified name. For example, the function MAX is actually implemented by a class MAX in the package org.apache.pig.builtin.
+		- We can add our package name to the search path by invoking Grunt with this command-line argument: -Dudf.import.list=com.hadoopbook.pig. Alternatively, we can shorten the function name by defining an alias, using the DEFINE operator:
+			grunt> DEFINE isGood com.hadoopbook.pig.IsGoodQuality();
+			grunt> filtered_records = FILTER records BY temperature != 9999 AND isGood(quality);
+		- Note: If you add the lines to register JAR files and define function aliases to the .pigbootup file in your home directory, they will be run whenever you start Pig.
+- Types mapping in UDF
+	- The filter works when the quality field is declared to be of type int, but if the type information is absent, the UDF fails! This happens because the field is the default type, bytearray, represented by the DataByteArray class. Because DataByteArray is not an Integer, the cast fails.
+	- The obvious way to fix this is to convert the field to an integer in the exec() method. However, there is a better way, which is to tell Pig the types of the fields that the function expects. The getArgToFuncMapping() method on EvalFunc is provided for precisely this reason. We can override it to tell Pig that the first field should be an integer:
+		@Override
+		public List<FuncSpec> getArgToFuncMapping() throws FrontendException {
+		List<FuncSpec> funcSpecs = new ArrayList<FuncSpec>();
+		funcSpecs.add(new FuncSpec(this.getClass().getName(),
+		    new Schema(new Schema.FieldSchema(null, DataType.INTEGER))));
+
+		return funcSpecs;
+		}
+A Load UDF
+	- We’ll demonstrate a custom load function that can read plain-text column ranges as fields, very much like the Unix cut command.[103] It is used as follows:
+		grunt> records = LOAD 'input/ncdc/micro/sample.txt'
+		>>   USING com.hadoopbook.pig.CutLoadFunc('16-19,88-92,93-93')
+		>>   AS (year:int, temperature:int, quality:int);
+	- The string passed to CutLoadFunc is the column specification; each comma-separated range defines a field, which is assigned a name and type in the AS clause.
+		public class CutLoadFunc extends LoadFunc {
+
+		  private static final Log LOG = LogFactory.getLog(CutLoadFunc.class);
+
+		  private final List<Range> ranges;
+		  private final TupleFactory tupleFactory = TupleFactory.getInstance();
+		  private RecordReader reader;
+
+		  public CutLoadFunc(String cutPattern) {
+		    ranges = Range.parse(cutPattern);
+		  }
+		  
+		  @Override
+		  public void setLocation(String location, Job job)
+		      throws IOException {
+		    FileInputFormat.setInputPaths(job, location);
+		  }
+		  
+		  @Override
+		  public InputFormat getInputFormat() {
+		    return new TextInputFormat();
+		  }
+		  
+		  @Override
+		  public void prepareToRead(RecordReader reader, PigSplit split) {
+		    this.reader = reader;
+		  }
+
+		  @Override
+		  public Tuple getNext() throws IOException {
+		    try {
+		      if (!reader.nextKeyValue()) {
+		        return null;
+		      }
+		      Text value = (Text) reader.getCurrentValue();
+		      String line = value.toString();
+		      Tuple tuple = tupleFactory.newTuple(ranges.size());
+		      for (int i = 0; i < ranges.size(); i++) {
+		        Range range = ranges.get(i);
+		        if (range.getEnd() > line.length()) {
+		          LOG.warn(String.format(
+		              "Range end (%s) is longer than line length (%s)",
+		              range.getEnd(), line.length()));
+		          continue;
+		        }
+		        tuple.set(i, new DataByteArray(range.getSubstring(line)));
+		      }
+		      return tuple;
+		    } catch (InterruptedException e) {
+		      throw new ExecException(e);
+		    }
+		  }
+		}
+	- If the user has specified a schema, then the fields need to be converted to the relevant types. However, this is performed lazily by Pig, and so the loader should always construct tuples of type bytearrary, using the DataByteArray type. The loader function still has the opportunity to do the conversion, however, by overriding getLoadCaster() to return a custom implementation of the LoadCaster interface, which provides a collection of conversion methods for this purpose.
+	- CutLoadFunc doesn’t override getLoadCaster() because the default implementation returns Utf8StorageConverter, which provides standard conversions between UTF-8 encoded data and Pig data types.
+	- In some cases, the load function itself can determine the schema. For example, if we were loading self-describing data such as XML or JSON, we could create a schema for Pig by looking at the data. Alternatively, the load function may determine the schema in another way, such as an external file, or by being passed information in its constructor. To support such cases, the load function should implement the LoadMetadata interface (in addition to the LoadFunc interface) so it can supply a schema to the Pig runtime. Note, however, that if a user supplies a schema in the AS clause of LOAD, then it takes precedence over the schema one specified through the LoadMetadata interface.
+- Store
+	grunt> STORE A INTO 'out' USING PigStorage(':');
+	grunt> cat out
+	Joe:cherry:2
+	Ali:apple:3
+	Joe:banana:2
+	Eve:apple:7
+FOREACH...GENERATE
+	- We have already seen how to remove rows from a relation using the FILTER operator with simple expressions and a UDF. The FOREACH...GENERATE operator is used to act on every row in a relation. It can be used to remove fields or to generate new ones. In this example, we do both:
+		grunt> DUMP A;
+		(Joe,cherry,2)
+		(Ali,apple,3)
+		(Joe,banana,2)
+		(Eve,apple,7)
+		grunt> B = FOREACH A GENERATE $0, $2+1, 'Constant';
+		grunt> DUMP B;
+		(Joe,3,Constant)
+		(Ali,4,Constant)
+		(Joe,3,Constant)
+		(Eve,8,Constant)
+	- Multiple foreach
+		records = LOAD 'input/ncdc/all/19{1,2,3,4,5}0*'
+		  USING com.hadoopbook.pig.CutLoadFunc('5-10,11-15,16-19,88-92,93-93')
+		  AS (usaf:chararray, wban:chararray, year:int, temperature:int, quality:int);
+		  
+		grouped_records = GROUP records BY year PARALLEL 30;
+
+		year_stats = FOREACH grouped_records {
+		  uniq_stations = DISTINCT records.usaf;
+		  good_records = FILTER records BY isGood(quality);
+		  GENERATE FLATTEN(group), COUNT(uniq_stations) AS station_count,
+		    COUNT(good_records) AS good_record_count, COUNT(records) AS record_count;
+		}
+	- Using the cut UDF we developed earlier, we load various fields from the input dataset into the records relation. Next, we group records by year. Notice the PARALLEL keyword for setting the number of reducers to use; this is vital when running on a cluster. Then we process each group using a nested FOREACH...GENERATE operator. The first nested statement creates a relation for the distinct USAF identifiers for stations using the DISTINCT operator. The second nested statement creates a relation for the records with “good” readings using the FILTER operator and a UDF. The final nested statement is a GENERATE statement (a nested FOREACH...GENERATE must always have a GENERATE statement as the last nested statement) that generates the summary fields of interest using the grouped records, as well as the relations created in the nested block.
+STREAM
+	- The STREAM operator allows you to transform data in a relation using an external program or script. It is named by analogy with Hadoop Streaming, which provides a similar capability for MapReduce.
+	- STREAM can use built-in commands with arguments. Here is an example that uses the Unix cut command to extract the second field of each tuple in A. Note that the command and its arguments are enclosed in backticks:
+		grunt> C = STREAM A THROUGH `cut -f 2`;
+		grunt> DUMP C;
+		(cherry)
+		(apple)
+		(banana)
+		(apple)
+	- The STREAM operator uses PigStorage to serialize and deserialize relations to and from the program’s standard input and output streams. Tuples in A are converted to tab-delimited lines that are passed to the script. The output of the script is read one line at a time and split on tabs to create new tuples for the output relation C. You can provide a custom serializer and deserializer by subclassing PigStreamingBase (in the org.apache.pig package), then using the DEFINE operator.
+	- Pig streaming is most powerful when you write custom processing scripts. The following Python script filters out bad weather records:
+		#!/usr/bin/env python
+		import re
+		import sys
+		for line in sys.stdin:
+		  (year, temp, q) = line.strip().split()
+		  if (temp != "9999" and re.match("[01459]", q)):
+		    print "%s\t%s" % (year, temp)
+	- To use the script, you need to ship it to the cluster. This is achieved via a DEFINE clause, which also creates an alias for the STREAM command. The STREAM statement can then refer to the alias, as the following Pig script shows:
+		-- max_temp_filter_stream.pig
+		DEFINE is_good_quality `is_good_quality.py`
+		  SHIP ('ch16-pig/src/main/python/is_good_quality.py');
+		records = LOAD 'input/ncdc/micro-tab/sample.txt'
+		  AS (year:chararray, temperature:int, quality:int);
+		filtered_records = STREAM records THROUGH is_good_quality
+		  AS (year:chararray, temperature:int);
+		grouped_records = GROUP filtered_records BY year;
+		max_temp = FOREACH grouped_records GENERATE group,
+		  MAX(filtered_records.temperature);
+		DUMP max_temp;
+Grouping and Joining Data
+	-Since the large datasets that are suitable for analysis by Pig are not normalized, joins are used more infrequently in Pig than they are in SQL.
+	- Let’s look at an example of an inner join. Consider the relations A and B:
+		grunt> DUMP A;
+		(2,Tie)
+		(4,Coat)
+		(3,Hat)
+		(1,Scarf)
+		grunt> DUMP B;
+		(Joe,2)
+		(Hank,4)
+		(Ali,0)
+		(Eve,3)
+		(Hank,2)
+	- We can join the two relations on the numerical (identity) field in each:
+		grunt> C = JOIN A BY $0, B BY $1;
+		grunt> DUMP C;
+		(2,Tie,Hank,2)
+		(2,Tie,Joe,2)
+		(3,Hat,Eve,3)
+		(4,Coat,Hank,4)
+	- You should use the general join operator when all the relations being joined are too large to fit in memory. If one of the relations is small enough to fit in memory, there is a special type of join called a fragment replicate join, which is implemented by distributing the small input to all the mappers and performing a map-side join using an in-memory lookup table against the (fragmented) larger relation. The first relation must be the large one, followed by one or more small ones (all of which must fit in memory). There is a special syntax for telling Pig to use a fragment replicate join:
+		grunt> C = JOIN A BY $0, B BY $1 USING 'replicated';
+COGROUP
+	JOIN always gives a flat structure: a set of tuples. The COGROUP statement is similar to JOIN, but instead creates a nested set of output tuples. This can be useful if you want to exploit the structure in subsequent statements:
+		grunt> D = COGROUP A BY $0, B BY $1;
+		grunt> DUMP D;
+		(0,{},{(Ali,0)})
+		(1,{(1,Scarf)},{})
+		(2,{(2,Tie)},{(Hank,2),(Joe,2)})
+		(3,{(3,Hat)},{(Eve,3)})
+		(4,{(4,Coat)},{(Hank,4)})
+	If the join key is composed of several fields, you can specify them all in the BY clauses of the JOIN or COGROUP statement.
+Group
+	- Where COGROUP groups the data in two or more relations, the GROUP statement groups the data in a single relation. GROUP supports grouping by more than equality of keys: you can use an expression or user-defined function as the group key. For example,
+		grunt> B = GROUP A BY SIZE($1);
+		grunt> DUMP B;
+		(5,{(Eve,apple),(Ali,apple)})
+		(6,{(Joe,banana),(Joe,cherry)})
+	- GROUP creates a relation whose first field is the grouping field, which is given the alias group. The second field is a bag containing the grouped fields with the same schema as the original relation (in this case, A).
+	- There are also two special grouping operations: ALL and ANY. ALL groups all the tuples in a relation in a single group, as if the GROUP function were a constant:
+		grunt> C = GROUP A ALL;
+		grunt> DUMP C;
+		(all,{(Eve,apple),(Joe,banana),(Ali,apple),(Joe,cherry)})
+		Note that there is no BY in this form of the GROUP statement. The ALL grouping is commonly used to count the number of tuples in a relation
+Sorting Data:
+	- Relations are unordered in Pig.
+		grunt> B = ORDER A BY $0, $1 DESC;
+		grunt> DUMP B;
+		(1,2)
+		(2,4)
+		(2,3)
+Combining and Spilliting Data
+	- Sometimes you have several relations that you would like to combine into one. For this, the UNION statement is used. For example:
+		grunt> DUMP A;
+		(2,3)
+		(1,2)
+		(2,4)
+		grunt> DUMP B;
+		(z,x,8)
+		(w,y,1)
+		grunt> C = UNION A, B;
+		grunt> DUMP C;
+		(2,3)
+		(z,x,8)
+		(1,2)
+		(w,y,1)
+		(2,4)
+	- C is the union of relations A and B, and because relations are unordered, the order of the tuples in C is undefined. Also, it’s possible to form the union of two relations with different schemas or with different numbers of fields, as we have done here. Pig attempts to merge the schemas from the relations that UNION is operating on. In this case, they are incompatible, so C has no schema:
+		grunt> DESCRIBE A;
+		A: {f0: int,f1: int}
+		grunt> DESCRIBE B;
+		B: {f0: chararray,f1: chararray,f2: int}
+		grunt> DESCRIBE C;
+		Schema for C unknown.
+	- The SPLIT operator is the opposite of UNION: it partitions a relation into two or more relations.
+Parallelism
+	- When running in MapReduce mode, it’s important that the degree of parallelism matches the size of the dataset. By default, Pig will sets the number of reducers by looking at the size of the input and using one reducer per 1 GB of input, up to a maximum of 999 reducers. You can override these parameters by setting pig.exec.reducers.bytes.per.reducer (the default is 1,000,000,000 bytes) and pig.exec.reducers.max (the default is 999).
+	- To explicitly set the number of reducers you want for each job, you can use a PARALLEL clause for operators that run in the reduce phase. These include all the grouping and joining operators (GROUP, COGROUP, JOIN, CROSS), as well as DISTINCT and ORDER. The following line sets the number of reducers to 30 for the GROUP:
+		grunt> grouped_records = GROUP records BY year PARALLEL 30;
+	Alternatively, you can set the default_parallel option, and it will take effect for all subsequent jobs:
+		grunt> set default_parallel 30
+	- The number of map tasks is set by the size of the input (with one map per HDFS block) and is not affected by the PARALLEL clause.
+Anonymous Relations
+	- You usually apply a diagnostic operator like DUMP or DESCRIBE to the most recently defined relation. Since this is so common, Pig has a shortcut to refer to the previous relation: @. Similarly, it can be tiresome to have to come up with a name for each relation when using the interpreter. Pig allows you to use the special syntax => to create a relation with no alias, which can only be referred to with @. For example,
+		grunt> => LOAD 'input/ncdc/micro-tab/sample.txt';
+		grunt> DUMP @
+		(1950,0,1)
+		(1950,22,1)
+		(1950,-11,1)
+		(1949,111,1)
+		(1949,78,1)
+External Parameters
+	- If you have a Pig script that you run on a regular basis, it’s quite common to want to be able to run the same script with different parameters. For example, a script that runs daily may use the date to determine which input files it runs over. Pig supports parameter substitution, where parameters in the script are substituted with values supplied at runtime. Parameters are denoted by identifiers prefixed with a $ character; for example, $input and $output are used in the following script to specify the input and output paths:
+		-- max_temp_param.pig
+		records = LOAD '$input' AS (year:chararray, temperature:int, quality:int);
+		filtered_records = FILTER records BY temperature != 9999 AND quality IN (0, 1, 4, 5, 9);
+		grouped_records = GROUP filtered_records BY year;
+		max_temp = FOREACH grouped_records GENERATE group, MAX(filtered_records.temperature);
+		STORE max_temp into '$output';
+	- Parameters can be specified when launching Pig, using the -param option, one for each parameter:
+		% pig -param input=/user/tom/input/ncdc/micro-tab/sample.txt \
+		>     -param output=/tmp/out \
+		>     ch16-pig/src/main/pig/max_temp_param.pig
+	- You can also put parameters in a file and pass them to Pig using the -param_file option. For example, we can achieve the same result as the previous command by placing the parameter definitions in a file:
+		# Input file
+		input=/user/tom/input/ncdc/micro-tab/sample.txt
+		# Output file
+		output=/tmp/out
+	- The pig invocation then becomes:
+		% pig -param_file ch16-pig/src/main/pig/max_temp_param.param \
+		>     ch16-pig/src/main/pig/max_temp_param.pig
+	- You can specify multiple parameter files using -param_file repeatedly. You can also use a combination of -param and -param_file options, and if any parameter is defined in both a parameter file and on the command line, the last value on the command line takes precedence.
+Dynamic parameters
+	- For parameters that are supplied using the -param option, it is easy to make the value dynamic by running a command or script. Many Unix shells support command substitution for a command enclosed in backticks, and we can use this to make the output directory date-based:
+		% pig -param input=/user/tom/input/ncdc/micro-tab/sample.txt \
+		>     -param output=/tmp/`date "+%Y-%m-%d"`/out \
+		>     ch16-pig/src/main/pig/max_temp_param.pig
+	- Pig also supports backticks in parameter files by executing the enclosed command in a shell and using the shell output as the substituted value. If the command or scripts exit with a nonzero exit status, then the error message is reported and execution halts. Backtick support in parameter files is a useful feature; it means that parameters can be defined in the same way in a file or on the command line.
+Parameter substitution processing
+	Parameter substitution occurs as a preprocessing step before the script is run. You can see the substitutions that the preprocessor made by executing Pig with the -dryrun option. In dry run mode, Pig performs parameter substitution (and macro expansion) and generates a copy of the original script with substituted values, but does not execute the script. You can inspect the generated script and check that the substitutions look sane (because they are dynamically generated, for example) before running it in normal mode.
